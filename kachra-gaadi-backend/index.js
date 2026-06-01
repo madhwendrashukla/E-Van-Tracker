@@ -37,7 +37,7 @@ app.post('/api/location', async (req, res) => {
   try {
     const { vehicle_id, city_id, lat, lng, speed, timestamp, source } = req.body;
     
-    if (!vehicle_id || !city_id || lat === undefined || lng === undefined || !speed) {
+    if (!vehicle_id || !city_id || lat === undefined || lng === undefined || speed === undefined) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
