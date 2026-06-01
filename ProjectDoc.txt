@@ -1,0 +1,432 @@
+E-Van Tracker TRACKING SYSTEM
+Comprehensive Project Document
+Version 1.0  |  May 2026
+1. Project Overview
+A city-level waste collection vehicle tracking system enabling municipal administrators and citizens to monitor garbage collection vehicles in real time across multiple cities.
+1.1 Problem Statement
+Citizens have no visibility into when the garbage vehicle will arrive
+Municipality has no real-time fleet oversight across the city
+No structured route or stop management for waste collection
+1.2 Solution
+Live GPS tracking of all vehicles on a map
+Predefined routes and stops per vehicle, visible to citizens
+Admin dashboard for multi-city fleet management
+Simple citizen interface â€” enter vehicle code, see live location
+2. User Types & Access
+User Type
+Access Level
+Platform
+Super Admin
+All cities, all vehicles, full control
+Web Dashboard
+City Admin
+Only their assigned city
+Web Dashboard
+Driver
+Location sender only
+Flutter App (Android)
+Citizen / Public
+Search vehicle, view live map
+Website (PWA)
+3. Recommended Tech Stack
+3.1 Complete Stack
+Layer
+Technology
+Why This
+Driver App
+Flutter (Dart)
+Background GPS, Android + iOS single codebase, offline buffer
+IDE for Flutter
+Android Studio
+Built-in emulator, best Flutter support
+Backend API
+Node.js + Express
+Real-time native, industry standard for tracking (Uber/Rapido use it)
+Real-Time
+Socket.io
+WebSocket wrapper, auto-reconnect, room management built-in
+Database
+PostgreSQL
+Structured data + geo queries, mature and reliable
+DB Hosting
+Supabase (Free)
+Managed PostgreSQL, 500MB free, zero setup
+Backend Hosting
+Railway (Hobby $5/mo)
+Simplest Node.js deployment, auto deploy from GitHub
+Frontend
+Next.js
+React-based, SSR support, admin + citizen in one codebase
+Frontend Hosting
+Vercel (Free)
+Made for Next.js, zero config deployment
+Maps
+Google Maps API
+Professional, government-accepted, 70K free loads/month India
+Maps Alternative
+MapmyIndia (Ola Maps)
+Better Indian roads, 1 lakh free loads, preferred for govt projects
+Code Editor
+VS Code
+Backend + frontend both
+3.2 Maps Decision
+Choose ONE of the following:
+
+Google Maps
+MapmyIndia
+Free Tier (India)
+70,000 loads/month
+1,00,000 loads/month
+Indian Road Data
+Good
+Better
+Govt Project Fit
+Acceptable
+Preferred
+Documentation
+Excellent
+Good
+Recommendation
+If private/startup
+If government contract
+4. Standard GPS Data Payload
+4.1 The Payload â€” Fixed Forever
+This is the exact JSON structure sent from BOTH Flutter app and GPS hardware. Never changes.
+{
+  "vehicle_id":  "LKO-001",
+  "city_id":     "LKO",
+  "lat":         26.8467,
+  "lng":         80.9462,
+  "speed":       12.5,
+  "timestamp":   "2026-05-29T10:30:00Z",
+  "source":      "app"
+}
+4.2 Field Explanation
+Field
+Required?
+Source
+Notes
+vehicle_id
+YES
+Driver login / hardware config
+e.g. LKO-001, KNP-002
+city_id
+YES
+Derived from vehicle_id prefix
+Required for multi-city filtering
+lat
+YES
+Phone GPS / hardware GPS
+Latitude coordinate
+lng
+YES
+Phone GPS / hardware GPS
+Longitude coordinate
+speed
+YES
+Phone GPS / hardware GPS
+In km/h
+timestamp
+YES
+Device clock
+ISO 8601 format UTC
+source
+Optional
+Hardcoded
+app or gps â€” for logging only
+4.3 Why city_id is Required
+35+ vehicles per city â€” admin needs to filter by city
+Multi-city system â€” Lucknow vehicles should not appear in Kanpur dashboard
+Vehicle code prefix carries city info â€” LKO = Lucknow, KNP = Kanpur
+Can be auto-derived on server from vehicle_id â€” driver does not type it manually
+4.4 Phase Replacement â€” Flutter to GPS Hardware
+When replacing Flutter app with GPS hardware tracker (e.g. GT06N):
+Same vehicle_id configured in hardware via SMS command
+Same API endpoint â€” hardware hits same URL
+Same JSON payload â€” only source changes from app to gps
+Zero code change on server or frontend
+5. Database Schema
+5.1 Tables Overview
+Table
+Purpose
+cities
+All registered cities
+vehicles
+All vehicles, linked to city and route
+routes
+Planned route per vehicle
+stops
+Individual stops on each route
+location_logs
+Real-time GPS logs (auto-cleaned daily)
+users
+Admin and city admin accounts
+5.2 cities Table
+id          UUID PRIMARY KEY
+name        TEXT  (e.g. Lucknow)
+code        TEXT  (e.g. LKO)
+state       TEXT  (e.g. Uttar Pradesh)
+created_at  TIMESTAMP
+5.3 vehicles Table
+id            UUID PRIMARY KEY
+vehicle_code  TEXT  (e.g. LKO-001)
+city_id       UUID  REFERENCES cities(id)
+driver_name   TEXT
+route_id      UUID  REFERENCES routes(id)
+status        TEXT  (active / inactive)
+created_at    TIMESTAMP
+5.4 routes Table
+id          UUID PRIMARY KEY
+city_id     UUID  REFERENCES cities(id)
+name        TEXT  (e.g. Route A - North Zone)
+created_at  TIMESTAMP
+5.5 stops Table
+id          UUID PRIMARY KEY
+route_id    UUID  REFERENCES routes(id)
+name        TEXT  (e.g. Gandhi Nagar Chowk)
+lat         FLOAT
+lng         FLOAT
+stop_order  INTEGER  (1, 2, 3...)
+5.6 location_logs Table
+id           UUID PRIMARY KEY
+vehicle_id   UUID  REFERENCES vehicles(id)
+city_id      UUID  REFERENCES cities(id)
+lat          FLOAT
+lng          FLOAT
+speed        FLOAT
+source       TEXT  (app / gps)
+timestamp    TIMESTAMP
+Auto-cleanup rule: Delete records older than 24 hours daily. Keeps storage under 15MB for 35 vehicles.
+6. System Architecture
+6.1 High-Level Flow
+Flutter App / GPS Hardware
+   |
+   | POST /api/location (every 5 seconds)
+   v
+Node.js Backend (Railway)
+   |-- Validate payload
+   |-- Save to PostgreSQL (Supabase)
+   |-- Broadcast via Socket.io
+   v
+Socket.io Channels
+   |-- admin-room       (all 35 vehicles)
+   |-- vehicle-LKO-001  (single vehicle)
+   v
+Next.js Frontend (Vercel)
+   |-- Admin Dashboard  (all vehicles map)
+   |-- Citizen Website  (single vehicle search)
+6.2 Socket.io Room Strategy
+Each vehicle gets its own room: vehicle-LKO-001, vehicle-LKO-002
+Admin joins admin-room and receives all vehicle updates
+Citizen joins only the specific vehicle room they searched
+Bandwidth optimized â€” citizen does not receive 35 vehicles data
+6.3 Multi-City Isolation
+Every API request carries city_id
+Admin filtered by their assigned city on login
+Super Admin sees all cities
+Citizen selects city then enters vehicle code
+Single server handles all cities â€” no separate deployments
+7. Features by Panel
+7.1 Admin Dashboard
+Feature
+Description
+City Management
+Add/edit/delete cities. Each city has code, name, state.
+Vehicle Management
+Add vehicles to a city. Assign route. Set driver name.
+Route Builder
+Create routes. Add stops with name, lat/lng, and order number.
+Live Map â€” All Vehicles
+City map showing all active vehicles as moving dots.
+Click Vehicle
+Side panel opens â€” shows driver, speed, last updated, route.
+Vehicle Status
+Online (sending location) / Offline (no signal) / Idle.
+Multi-City View
+Super Admin can switch between cities from dropdown.
+7.2 Citizen Website (PWA)
+Feature
+Description
+City Selector
+Dropdown to choose city first.
+Vehicle Code Search
+Enter vehicle code (e.g. LKO-001) to track.
+Live Map
+Google/MapmyIndia map with moving vehicle marker.
+Route Line
+Planned route drawn as a line on map.
+Stops Markers
+Each stop shown as numbered pin on map.
+ETA
+Estimated time to reach next stop based on speed and distance.
+Last Updated
+Shows how many seconds ago location was received.
+PWA Install
+Add to Home Screen â€” works like a mobile app, no Play Store needed.
+7.3 Flutter Driver App
+Feature
+Description
+Login
+Driver enters vehicle_id and a PIN to authenticate.
+GPS Tracking
+Background GPS runs every 5 seconds even when app is minimized.
+Offline Buffer
+Stores coordinates in local SQLite when no internet. Auto-syncs when online.
+Status Indicator
+Shows connected / offline / syncing status to driver.
+Simple UI
+Minimal â€” just start/stop tracking button. No complex UI needed.
+8. Cost Breakdown
+8.1 One-Time Hardware Cost (Per City â€” 35 Vehicles)
+Item
+Per Vehicle
+35 Vehicles
+GPS Tracker GT06N (future phase)
+Rs. 1,800
+Rs. 63,000
+SIM Card
+Rs. 150
+Rs. 5,250
+Installation / Wiring
+Rs. 200
+Rs. 7,000
+Total One-Time
+Rs. 2,150
+Rs. 75,250
+8.2 Monthly Running Cost (Per City)
+Item
+Cost/Month
+Notes
+Railway (Backend)
+~Rs. 420 ($5)
+Hobby plan â€” covers 35 vehicles easily
+Supabase (Database)
+Rs. 0
+Free 500MB â€” sufficient with daily cleanup
+Vercel (Frontend)
+Rs. 0
+Free unlimited for Next.js
+Google Maps API
+Rs. 0
+Under 70K free loads/month for typical city
+SIM Data (35 vehicles)
+Rs. 3,465
+Rs. 99/month per SIM (Jio/Airtel 1GB)
+Total Per City/Month
+~Rs. 3,900
+Scales cheaply for more cities
+8.3 Multi-City Scaling Cost
+Cities
+Server Cost
+SIM Cost
+Total/Month
+1 city (35 vehicles)
+Rs. 420
+Rs. 3,465
+Rs. 3,885
+3 cities (105 vehicles)
+Rs. 420
+Rs. 10,395
+Rs. 10,815
+5 cities (175 vehicles)
+Rs. 420
+Rs. 17,325
+Rs. 17,745
+10 cities (350 vehicles)
+Rs. 840
+Rs. 34,650
+Rs. 35,490
+Note: Server cost stays same up to 5 cities. One Railway instance handles all cities.
+8.4 Google Maps Billing â€” Tiered Pricing
+India pricing â€” free tier resets every month:
+Usage
+Cost
+0 to 70,000 map loads
+FREE
+70,001 to 75,000 (example)
+Only extra 5,000 charged â€” not all 75,000
+Estimated overage cost
+~Rs. 590 per 10,000 extra loads
+9. Build Plan â€” Week by Week
+Week
+What to Build
+Output
+Week 1
+Database schema setup on Supabase. Node.js project init. Basic REST API endpoints.
+Working API that accepts location payload
+Week 2
+Flutter app â€” login screen, background GPS, offline SQLite buffer, POST to API.
+Driver app sending live coordinates
+Week 3
+Socket.io integration. Admin dashboard â€” city and vehicle management. Live map all vehicles.
+Admin can see all vehicles moving
+Week 4
+Route builder in admin. Stop management. Citizen website â€” search + live map + route + stops.
+Full citizen tracking experience
+Week 5
+Multi-city testing. Add 2-3 dummy cities. PWA setup. ETA calculation. Bug fixes.
+Production-ready system
+Future
+Replace Flutter app with GT06N GPS hardware tracker per vehicle.
+Zero driver involvement needed
+10. Vehicle Naming Convention
+Recommended vehicle code format: CITYCODE-NUMBER
+City
+City Code
+Vehicle Codes
+Lucknow
+LKO
+LKO-001, LKO-002 ... LKO-035
+Kanpur
+KNP
+KNP-001, KNP-002 ... KNP-035
+Agra
+AGR
+AGR-001, AGR-002 ... AGR-035
+Varanasi
+VNS
+VNS-001, VNS-002 ... VNS-035
+City code is extracted from vehicle_id on the server automatically â€” city_id does not need to be sent separately by the driver.
+11. Route and Stop Management
+11.1 How Routes Work
+Each vehicle is assigned exactly one active route
+A route has a name and belongs to a city
+Each route has multiple stops in order (stop_order: 1, 2, 3...)
+Admin creates and manages routes from the dashboard
+Citizen sees the route line and all stops on the map
+11.2 Stop Information
+Stop name (e.g. Gandhi Nagar Chowk, Sector 4 Gate)
+Latitude and longitude â€” set by admin by clicking on map
+Order number â€” sequence in which vehicle visits
+ETA calculated from vehicle current position and speed
+11.3 Admin â€” Adding a Stop
+Step by step from admin dashboard:
+Select city and then select vehicle
+Go to Route Builder
+Click on map to place stop pin
+Enter stop name and confirm order
+Save â€” route is live immediately
+12. Future Roadmap
+Phase
+Feature
+Timeline
+Phase 1
+Flutter app + web dashboard + citizen site (current build)
+0-5 weeks
+Phase 2
+Replace Flutter with GT06N GPS hardware per vehicle
+Month 3-4
+Phase 3
+WhatsApp/SMS alerts â€” notify citizen when vehicle is 10 min away
+Month 5-6
+Phase 4
+Migrate from Railway to VPS for cost reduction at scale
+Month 6+
+Phase 5
+Analytics dashboard â€” daily route completion, avg speed, missed stops
+Month 8+
+Phase 6
+Citizen complaint system â€” report missed stop directly from app
+Month 10+
+E-Van Tracker Tracking System â€” Project Document v1.0
+Prepared May 2026

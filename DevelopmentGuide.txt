@@ -1,0 +1,471 @@
+
+E-Van Tracker TRACKING SYSTEM
+Development Procedure & Setup Guide
+
+Tech Stack
+Flutter (Android Studio)  |  Node.js (VS Code)  |  Supabase  |  MapmyIndia  |  Vercel
+
+Version 1.0  |  June 2026
+0. Before You Start â€” What We Are Building
+This document gives you the exact steps to build the E-Van Tracker Tracking System from scratch. Follow the steps in order. Do not skip ahead.
+
+Component
+Tool
+Status
+Flutter Driver App
+Android Studio
+Install check needed
+Backend API + Socket.io
+VS Code + Node.js
+Ready
+Database
+Supabase (PostgreSQL)
+Need to setup
+Frontend (Admin + Citizen)
+VS Code + Next.js
+Need to setup
+Maps
+MapmyIndia (Ola Maps)
+Need API key
+Backend Hosting
+Railway ($5/mo)
+Need account
+Frontend Hosting
+Vercel (Free)
+Need account
+
+
+PHASE 0 â€” Flutter + Android Studio Integration Check
+This is the first thing to verify before writing any code. If Flutter is not properly connected to Android Studio, your driver app will not run.
+
+Step 0.1 â€” Verify Flutter Installation
+Open a terminal (Command Prompt or PowerShell on Windows) and run:
+flutter doctor
+You will see a report. The goal is to have NO red X marks next to Android Studio and Android toolchain.
+
+Step 0.2 â€” What to Look For in Flutter Doctor Output
+Status
+Meaning
+Action Needed
+[âœ“] Flutter
+Flutter installed correctly
+Nothing
+[âœ“] Android toolchain
+Android SDK found
+Nothing
+[âœ“] Android Studio
+Android Studio detected
+Nothing
+[âœ—] Android Studio
+Not found or plugin missing
+Fix â€” see Step 0.3
+[!] Android license
+Licenses not accepted
+Fix â€” see Step 0.4
+
+Step 0.3 â€” Fix Flutter Plugin in Android Studio (If Needed)
+Open Android Studio
+Go to File > Settings > Plugins (on Mac: Android Studio > Preferences > Plugins)
+Search for Flutter in the marketplace
+Install Flutter plugin â€” it will automatically install Dart plugin too
+Restart Android Studio
+Run flutter doctor again â€” should show green checkmark now
+
+Step 0.4 â€” Accept Android Licenses (If Needed)
+If flutter doctor shows Android license status unknown, run:
+flutter doctor --android-licenses
+Press Y and Enter for each license prompt. All done when it says All SDK package licenses accepted.
+
+Step 0.5 â€” Create a Test Flutter Project to Confirm Setup
+Before building the actual app, confirm everything works with a test project:
+Open Android Studio
+Click New Flutter Project
+Select Flutter, click Next
+Give project name: test_app, click Create
+Connect an Android phone via USB (enable Developer Options + USB Debugging on phone) OR start an emulator from the toolbar
+Click the Run button (green triangle)
+If you see a demo app running on your device â€” Flutter is working perfectly. Delete this test project.
+
+
+PHASE 1 â€” Supabase Database Setup
+Supabase gives us a free managed PostgreSQL database. We set this up first because the backend needs the database URL before it can run.
+
+Step 1.1 â€” Create Supabase Account and Project
+Go to supabase.com and sign up (free)
+Click New Project
+Project name: E-Van-gaadi-tracker
+Database password: create a strong password â€” save it somewhere safe
+Region: Southeast Asia (Singapore) â€” closest to India
+Click Create New Project â€” takes about 2 minutes
+
+Step 1.2 â€” Get Your Database Credentials
+Once project is created:
+Go to Settings > Database
+Copy the Connection String (URI format) â€” starts with postgresql://postgres...
+Also go to Settings > API and copy the Project URL and anon public key
+Save all three â€” you will need them in Step 2.4
+
+Step 1.3 â€” Create the Database Tables
+Go to the SQL Editor in Supabase dashboard and run the following SQL blocks one by one:
+
+Create cities table:
+CREATE TABLE cities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  state TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Create routes table:
+CREATE TABLE routes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  city_id UUID REFERENCES cities(id),
+  name TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Create vehicles table:
+CREATE TABLE vehicles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_code TEXT NOT NULL UNIQUE,
+  city_id UUID REFERENCES cities(id),
+  driver_name TEXT,
+  route_id UUID REFERENCES routes(id),
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Create stops table:
+CREATE TABLE stops (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_id UUID REFERENCES routes(id),
+  name TEXT NOT NULL,
+  lat FLOAT NOT NULL,
+  lng FLOAT NOT NULL,
+  stop_order INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Create location_logs table:
+CREATE TABLE location_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_id UUID REFERENCES vehicles(id),
+  city_id UUID REFERENCES cities(id),
+  lat FLOAT NOT NULL,
+  lng FLOAT NOT NULL,
+  speed FLOAT,
+  source TEXT DEFAULT 'app',
+  timestamp TIMESTAMP DEFAULT NOW()
+);
+
+Create users table:
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL,
+  city_id UUID REFERENCES cities(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Auto-cleanup rule for location_logs (run daily):
+DELETE FROM location_logs WHERE timestamp < NOW() - INTERVAL '24 hours';
+Note: Set this as a scheduled job in Supabase Dashboard > Database > Cron Jobs.
+
+Step 1.4 â€” Insert Sample Test Data
+Insert one city and one vehicle to test the backend later:
+INSERT INTO cities (name, code, state) VALUES ('Lucknow', 'LKO', 'Uttar Pradesh');
+INSERT INTO routes (city_id, name) SELECT id, 'Route A - North Zone' FROM cities WHERE code = 'LKO';
+INSERT INTO vehicles (vehicle_code, city_id, route_id, driver_name)
+SELECT 'LKO-001', c.id, r.id, 'Test Driver'
+FROM cities c, routes r WHERE c.code = 'LKO' LIMIT 1;
+
+
+PHASE 2 â€” MapmyIndia API Key Setup
+We use MapmyIndia (Ola Maps) instead of Google Maps â€” better Indian road data, higher free tier, preferred for municipal projects.
+
+Step 2.1 â€” Create MapmyIndia Developer Account
+Go to maps.mapmyindia.com/api
+Click Get API Key or Sign Up
+Register with your email and verify
+Go to Dashboard and create a new project
+Project name: E-VanGaadiTracker
+Copy the REST API Key and Map SDK Key â€” save them
+
+Step 2.2 â€” What Keys You Get and Where They Are Used
+Key Type
+Used In
+Purpose
+REST API Key
+Node.js Backend
+Geocoding, routing calculations
+Map SDK Key
+Next.js Frontend
+Displaying interactive maps
+Map SDK Key
+Flutter App
+Map display in driver app (optional)
+
+Free tier: 1,00,000 map loads per month â€” more than enough for a city-level pilot.
+
+
+PHASE 3 â€” Node.js Backend Setup (VS Code)
+The backend is the heart of the system. It receives GPS data from the Flutter app, saves it to Supabase, and broadcasts it via Socket.io to the frontend.
+
+Step 3.1 â€” Create Project Folder and Initialize
+Open VS Code. Open terminal inside VS Code (Ctrl + ` backtick):
+mkdir E-Van-gaadi-backend
+cd E-Van-gaadi-backend
+npm init -y
+
+Step 3.2 â€” Install Required Packages
+npm install express socket.io @supabase/supabase-js cors dotenv
+npm install --save-dev nodemon
+
+Package
+Purpose
+express
+HTTP server and REST API routes
+socket.io
+Real-time WebSocket broadcasting
+@supabase/supabase-js
+Connect to Supabase database
+cors
+Allow frontend to call backend from different domain
+dotenv
+Load secret keys from .env file
+nodemon
+Auto-restart server on file changes during development
+
+Step 3.3 â€” Create .env File
+Create a file named .env in the root of your backend folder:
+SUPABASE_URL=your_supabase_project_url_here
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
+PORT=3001
+IMPORTANT: Never commit this file to GitHub. Add .env to your .gitignore file.
+
+Step 3.4 â€” Create the Main Server File
+Create index.js in the backend folder. This file handles three things: REST API endpoint for receiving GPS data, Supabase database writes, and Socket.io broadcasting.
+
+File structure to create:
+index.js â€” main server entry point
+routes/location.js â€” location POST endpoint
+routes/vehicles.js â€” vehicle data endpoints
+supabaseClient.js â€” Supabase connection
+.env â€” secret keys (never commit to git)
+.gitignore â€” exclude node_modules and .env
+
+Step 3.5 â€” Update package.json Scripts
+In package.json, update the scripts section:
+"scripts": {
+  "start": "node index.js",
+  "dev": "nodemon index.js"
+}
+
+Step 3.6 â€” Test Backend Locally
+Run the backend:
+npm run dev
+You should see: Server running on port 3001 in the terminal.
+Open Postman or Thunder Client (VS Code extension) and test:
+POST http://localhost:3001/api/location
+Send this JSON body:
+{ "vehicle_id": "LKO-001", "city_id": "LKO", "lat": 26.8467, "lng": 80.9462, "speed": 12.5, "timestamp": "2026-06-01T10:30:00Z", "source": "app" }
+Expected response: { success: true, message: Location saved and broadcasted }
+
+
+PHASE 4 â€” Flutter Driver App (Android Studio)
+The driver app does one job: send GPS coordinates to the backend every 5 seconds. It runs in the background even when the phone screen is off.
+
+Step 4.1 â€” Create Flutter Project
+Open Android Studio
+File > New > New Flutter Project
+Project name: E-Van_driver_app
+Organization: com.E-Vangaadi
+Click Finish
+
+Step 4.2 â€” Add Required Packages to pubspec.yaml
+Open pubspec.yaml and add under dependencies:
+dependencies:
+  flutter:
+    sdk: flutter
+  geolocator: ^10.1.0
+  http: ^1.2.0
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  flutter_background_service: ^5.0.5
+  shared_preferences: ^2.2.2
+
+Run: flutter pub get after saving pubspec.yaml
+
+Package
+Purpose
+geolocator
+Get GPS coordinates from phone
+http
+POST data to backend API
+sqflite
+Local SQLite storage for offline buffering
+flutter_background_service
+Run GPS tracking when app is minimized
+shared_preferences
+Save vehicle_id and PIN locally
+
+Step 4.3 â€” Android Permissions Setup
+Open android/app/src/main/AndroidManifest.xml and add before the application tag:
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+Step 4.4 â€” App Screens to Build
+Screen
+What It Does
+Login Screen
+Driver enters vehicle_id (e.g. LKO-001) and PIN. Saved locally.
+Tracking Screen
+Single button â€” Start Tracking / Stop Tracking. Shows connection status.
+Offline Indicator
+Shows number of buffered coordinates waiting to sync.
+
+Step 4.5 â€” GPS Logic Summary
+The core tracking logic works as follows:
+On Start Tracking â€” request location permission, start background service
+Every 5 seconds â€” get current lat/lng from geolocator
+Try to POST to backend API
+If POST succeeds â€” coordinate is sent and logged
+If POST fails (no internet) â€” save coordinate to SQLite offline buffer
+When internet returns â€” flush SQLite buffer to backend in order
+On Stop Tracking â€” stop background service, flush remaining buffer
+
+
+PHASE 5 â€” Next.js Frontend (VS Code)
+The frontend has two parts in one codebase: Admin Dashboard (password protected) and Citizen Website (public). Both built in Next.js.
+
+Step 5.1 â€” Create Next.js Project
+In VS Code terminal (outside the backend folder):
+npx create-next-app@latest E-Van-gaadi-frontend
+When prompted:
+TypeScript: No
+ESLint: Yes
+Tailwind CSS: Yes
+src/ directory: Yes
+App Router: Yes
+Import alias: No
+
+Step 5.2 â€” Install Additional Packages
+cd E-Van-gaadi-frontend
+npm install socket.io-client axios @mapmyindia/map-react-sdk
+
+Step 5.3 â€” Folder Structure
+Inside src/app, create these pages:
+/admin â€” Admin dashboard (protected, password login)
+/admin/cities â€” City management
+/admin/vehicles â€” Vehicle management
+/admin/routes â€” Route builder
+/admin/map â€” Live map all vehicles
+/ (root) â€” Citizen home page (city selector + vehicle search)
+/track/[vehicleCode] â€” Citizen live tracking map
+
+Step 5.4 â€” MapmyIndia Integration in Next.js
+Create a file src/components/MapView.js. Load the MapmyIndia SDK using your Map SDK Key:
+// In your component, load MapmyIndia map
+// Use the REST API Key for route/ETA calculations
+// Map SDK Key goes in your .env.local file as NEXT_PUBLIC_MMI_MAP_KEY
+
+Create .env.local in the frontend root:
+NEXT_PUBLIC_MMI_MAP_KEY=your_mapmyindia_sdk_key
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+
+Step 5.5 â€” Socket.io Connection in Frontend
+The frontend connects to the backend via Socket.io to receive live vehicle updates:
+On citizen tracking page â€” connect to socket, join room vehicle-LKO-001
+On location update event â€” update map marker position
+On admin map page â€” join admin-room, receive all vehicle updates
+Show Last Updated timer â€” count seconds since last location received
+
+
+PHASE 6 â€” Deployment
+Deploy backend to Railway and frontend to Vercel. Keep Supabase as the database â€” it is already cloud-hosted.
+
+Step 6.1 â€” Deploy Backend to Railway
+Go to railway.app and create account
+New Project > Deploy from GitHub repo
+Connect your GitHub and select the E-Van-gaadi-backend repo
+Railway auto-detects Node.js and deploys
+Go to Variables tab and add all .env variables (SUPABASE_URL, SUPABASE_ANON_KEY, PORT)
+Go to Settings > Networking > Generate Domain â€” copy the URL
+This is your live backend URL â€” example: E-Van-gaadi-backend.up.railway.app
+
+Step 6.2 â€” Update Flutter App with Live Backend URL
+In the Flutter driver app, replace localhost:3001 with your Railway URL:
+const String backendUrl = 'https://E-Van-gaadi-backend.up.railway.app';
+Build the APK and install on driver phone:
+flutter build apk --release
+
+Step 6.3 â€” Deploy Frontend to Vercel
+Go to vercel.com and sign up with GitHub
+New Project > Import E-Van-gaadi-frontend repo
+Add Environment Variables: NEXT_PUBLIC_MMI_MAP_KEY, NEXT_PUBLIC_BACKEND_URL (Railway URL)
+Click Deploy â€” Vercel auto-builds and gives you a live URL
+Example: E-Van-gaadi.vercel.app
+
+
+PHASE 7 â€” End-to-End Testing
+
+Testing Checklist
+Test
+How to Test
+Expected Result
+Driver app sends location
+Open app, tap Start Tracking, watch Supabase location_logs table
+New row appears every 5 seconds
+Admin map shows vehicle
+Open admin dashboard, go to Live Map
+Vehicle dot moves on map
+Citizen tracking works
+Open citizen site, enter LKO-001
+Live map with moving marker
+Offline buffer works
+Turn off phone WiFi/data, drive around, turn back on
+All buffered locations sync in order
+Multi-city isolation
+Add Kanpur city and vehicle KNP-001, check admin
+LKO admin cannot see KNP vehicles
+Route and stops visible
+Add stops in route builder, open citizen map
+Route line and stop pins appear
+
+
+Quick Reference â€” Week by Week Plan
+Week
+Focus
+Deliverable
+Week 1
+Phase 0 + Phase 1 + Phase 2
+Flutter working, DB tables created, MapmyIndia key ready
+Week 2
+Phase 3 + start Phase 4
+Backend API accepting GPS data, Flutter app sending location
+Week 3
+Phase 4 complete + Phase 5 start
+Driver app fully working, Admin dashboard with live map
+Week 4
+Phase 5 complete
+Citizen site, route builder, stops, ETA working
+Week 5
+Phase 6 + Phase 7
+Everything deployed and tested end-to-end
+
+
+Important Notes
+Never commit .env or .env.local files to GitHub â€” add them to .gitignore
+Supabase free tier has 500MB storage â€” the daily auto-cleanup keeps location_logs under 15MB
+Railway Hobby plan costs $5/month (~Rs. 420) â€” one instance handles all cities
+MapmyIndia SDK Key is public (NEXT_PUBLIC_) â€” safe to expose in frontend
+MapmyIndia REST API Key is secret â€” keep in backend .env only, never in frontend
+Flutter background GPS requires testing on a real Android device â€” emulators often have GPS issues
+When replacing Flutter app with GT06N hardware tracker later â€” zero code changes needed on backend or frontend
+
+E-Van Tracker Tracking System â€” Development Guide v1.0  |  June 2026

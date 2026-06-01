@@ -1,0 +1,5 @@
+package com.kachragaadi.kachra_driver_app
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity()

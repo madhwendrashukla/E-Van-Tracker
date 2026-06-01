@@ -1,0 +1,12 @@
+node_modules/
+.env
+.next/
+dist/
+build/
+*.apk
+*.log
+.DS_Store
+kachra_driver_app/.dart_tool/
+kachra_driver_app/.flutter-plugins
+kachra_driver_app/.flutter-plugins-dependencies
+kachra_driver_app/build/
