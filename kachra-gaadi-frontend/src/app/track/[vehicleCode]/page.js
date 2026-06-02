@@ -10,6 +10,9 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:300
 
 export default function TrackVehicle({ params }) {
   // Using React.use to unwrap params in Next.js 15+ App router
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [focusRouteTrigger, setFocusRouteTrigger] = useState(0);
+
   const unwrappedParams = use(params);
   const vehicleCode = unwrappedParams.vehicleCode;
   
@@ -191,6 +194,7 @@ export default function TrackVehicle({ params }) {
           backendUrl={BACKEND_URL} 
           plannedStops={routeData?.stops || []} 
           onDistanceUpdate={(dist) => setDistanceTraveled(dist)}
+          focusRouteTrigger={focusRouteTrigger}
         />
       </main>
 
@@ -308,7 +312,10 @@ export default function TrackVehicle({ params }) {
             </div>
           </div>
           
-          <button className="bg-white hover:bg-gray-50 text-[#16a34a] border border-[#bbf7d0] px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 transition-all shadow-sm">
+          <button 
+            onClick={() => setFocusRouteTrigger(prev => prev + 1)}
+            className="bg-white hover:bg-gray-50 text-[#16a34a] border border-[#bbf7d0] px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 transition-all shadow-sm"
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
             View Route
           </button>

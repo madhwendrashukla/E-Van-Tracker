@@ -47,7 +47,7 @@ const createVehicleMarkerHtml = (vid, bearing, isOnline) => {
   `;
 };
 
-export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], onDistanceUpdate }) {
+export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], onDistanceUpdate, focusRouteTrigger = 0 }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [visitedStops, setVisitedStops] = useState([]);
@@ -372,13 +372,15 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
     if (plannedStops.length > 0) {
       plannedStops.forEach(stop => {
-        const marker = new window.mappls.Marker({
-          map: mapRef.current,
-          position: { lat: stop.lat, lng: stop.lng },
-          popupHtml: `<div><b>${stop.name}</b> (Stop ${stop.stop_order})</div>`,
-          icon: 'https://apis.mapmyindia.com/map_v3/2.png'
-        });
-        plannedStopsMarkersRef.current.push(marker);
+        if (!visitedStops.includes(stop.stop_order)) {
+          const marker = new window.mappls.Marker({
+            map: mapRef.current,
+            position: { lat: stop.lat, lng: stop.lng },
+            popupHtml: `<div><b>${stop.name}</b> (Stop ${stop.stop_order})</div>`,
+            icon: 'https://apis.mapmyindia.com/map_v3/2.png'
+          });
+          plannedStopsMarkersRef.current.push(marker);
+        }
       });
 
       // Draw dashed blue route line connecting stops
@@ -426,7 +428,21 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         plannedRouteLineRef.current = null;
       }
     }
-  }, [mapLoaded, plannedStops, isBuilderMode]);
+  }, [mapLoaded, plannedStops, isBuilderMode, osrmRoute, visitedStops]);
+
+  // Handle "View Route" button trigger
+  useEffect(() => {
+    if (focusRouteTrigger > 0 && mapRef.current && plannedStops.length > 0) {
+      const nextStop = plannedStops.find(s => !visitedStops.includes(s.stop_order));
+      if (nextStop) {
+        mapRef.current.setCenter({ lat: nextStop.lat, lng: nextStop.lng });
+        mapRef.current.setZoom(15);
+      } else {
+        mapRef.current.setCenter({ lat: plannedStops[0].lat, lng: plannedStops[0].lng });
+        mapRef.current.setZoom(14);
+      }
+    }
+  }, [focusRouteTrigger, mapLoaded]);
 
   return (
     <div className="absolute inset-0" style={{ width: '100%', height: '100%' }}>
