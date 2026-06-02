@@ -69,8 +69,8 @@ export default function AdminDashboard() {
       {/* Sidebar Navigation */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col hidden md:flex shadow-2xl z-20">
         <div className="h-20 flex items-center px-6 border-b border-slate-800 bg-slate-950">
-          <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg mr-3 shadow-lg shadow-green-500/20">
-             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          <div className="mr-3 shadow-lg rounded-lg overflow-hidden flex items-center justify-center bg-transparent">
+             <img src="/logo.svg" alt="Logo" className="w-10 h-10 object-cover" />
           </div>
           <h1 className="text-xl font-bold tracking-wider">E-Van Admin</h1>
         </div>

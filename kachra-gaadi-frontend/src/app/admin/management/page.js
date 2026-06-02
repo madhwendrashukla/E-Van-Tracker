@@ -16,7 +16,7 @@ export default function ManagementDashboard() {
 
   // Forms State
   const [cityForm, setCityForm] = useState({ name: "", code: "", state: "" });
-  const [vehicleForm, setVehicleForm] = useState({ vehicle_code: "", driver_name: "", city_id: "" });
+  const [vehicleForm, setVehicleForm] = useState({ vehicle_code: "", driver_name: "", city_id: "", route_id: "" });
   const [routeForm, setRouteForm] = useState({ name: "", city_id: "", stops: [] });
   const [assignmentForm, setAssignmentForm] = useState({ city_id: "", vehicle_id: "", route_id: "" });
 
@@ -82,7 +82,7 @@ export default function ManagementDashboard() {
       const json = await res.json();
       if (json.success) {
         showMessage("Vehicle added successfully!");
-        setVehicleForm({ vehicle_code: "", driver_name: "", city_id: "" });
+        setVehicleForm({ vehicle_code: "", driver_name: "", city_id: "", route_id: "" });
         fetchData();
       } else {
         showMessage("Failed to add vehicle.", true);
@@ -326,6 +326,16 @@ export default function ManagementDashboard() {
                           <input required type="text" placeholder="e.g. Rajesh Kumar" className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 text-gray-900 placeholder-gray-400 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none"
                             value={vehicleForm.driver_name} onChange={e => setVehicleForm({...vehicleForm, driver_name: e.target.value})} />
                         </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">Assign Initial Route (Optional)</label>
+                        <select className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 text-gray-900 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none"
+                          value={vehicleForm.route_id} onChange={e => setVehicleForm({...vehicleForm, route_id: e.target.value})}>
+                          <option value="">No Route Assigned</option>
+                          {routes.filter(r => !vehicleForm.city_id || r.city_id === vehicleForm.city_id).map(r => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
                       </div>
                       <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">Save Vehicle</button>
                     </form>

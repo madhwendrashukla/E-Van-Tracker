@@ -1,15 +1,208 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeService();
   runApp(const EVanDriverApp());
+}
+
+Future<void> initializeService() async {
+  final service = FlutterBackgroundService();
+
+  await service.configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: onStart,
+      autoStart: false, // Start only when driver hits 'Start Shift'
+      isForegroundMode: true,
+      notificationChannelId: 'van_tracker_foreground',
+      initialNotificationTitle: 'E-Van Tracker',
+      initialNotificationContent: 'Driver shift ready',
+      foregroundServiceTypes: [AndroidForegroundType.location],
+    ),
+    iosConfiguration: IosConfiguration(
+      autoStart: false,
+      onForeground: onStart,
+      onBackground: onIosBackground,
+    ),
+  );
+}
+
+@pragma('vm:entry-point')
+bool onIosBackground(ServiceInstance service) {
+  WidgetsFlutterBinding.ensureInitialized();
+  return true;
+}
+
+@pragma('vm:entry-point')
+void onStart(ServiceInstance service) async {
+  DartPluginRegistrant.ensureInitialized();
+
+  if (service is AndroidServiceInstance) {
+    service.on('setAsForeground').listen((event) {
+      service.setAsForegroundService();
+    });
+
+    service.on('setAsBackground').listen((event) {
+      service.setAsBackgroundScreen();
+    });
+  }
+
+  service.on('stopService').listen((event) {
+    service.stopSelf();
+  });
+
+  // Load configured shift credentials
+  final prefs = await SharedPreferences.getInstance();
+  final vehicleCode = prefs.getString('vehicle_code') ?? '';
+  final apiUrl = prefs.getString('api_url') ?? '';
+
+  if (vehicleCode.isEmpty || apiUrl.isEmpty) {
+    service.stopSelf();
+    return;
+  }
+
+  final cityId = vehicleCode.split('-').first;
+
+  // Run initial background sync
+  _syncOfflineDataInBackground(apiUrl, vehicleCode, cityId);
+
+  StreamSubscription<Position>? positionStream;
+
+  // Listen to continuous high-precision GPS stream
+  positionStream = Geolocator.getPositionStream(
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 3, // Update only if vehicle moves at least 3 meters
+    ),
+  ).listen((Position position) async {
+    // Filter out inaccurate cellular/wifi triangulation jumps
+    if (position.accuracy > 30.0) {
+      return; 
+    }
+
+    final speedKmh = position.speed * 3.6; // Convert m/s to km/h
+    final timestamp = DateTime.now().toUtc().toIso8601String();
+    
+    final payload = {
+      "vehicle_id": vehicleCode,
+      "city_id": cityId,
+      "lat": position.latitude,
+      "lng": position.longitude,
+      "speed": speedKmh,
+      "timestamp": timestamp,
+      "source": "app"
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse('$apiUrl/api/location'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 3));
+
+      if (response.statusCode == 200) {
+        if (service is AndroidServiceInstance) {
+          service.updateNotificationInfo(
+            title: "Tracking Active - $vehicleCode",
+            content: "Speed: ${speedKmh.toStringAsFixed(1)} km/h | Status: Online",
+          );
+        }
+
+        // Notify UI isolate
+        service.invoke('location_update', {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'speed': speedKmh,
+          'status': 'Online',
+          'timestamp': timestamp,
+          'queued_count': 0
+        });
+
+        // Try syncing any previously buffered offline data
+        await _syncOfflineDataInBackground(apiUrl, vehicleCode, cityId);
+      } else {
+        throw Exception("Server rejected packet");
+      }
+    } catch (e) {
+      // Offline fallback: Buffer data locally in SQLite
+      await DatabaseHelper.instance.insertLocation({
+        "vehicle_id": vehicleCode,
+        "city_id": cityId,
+        "lat": position.latitude,
+        "lng": position.longitude,
+        "speed": speedKmh,
+        "timestamp": timestamp,
+        "source": "app-offline"
+      });
+
+      final queued = await DatabaseHelper.instance.getQueuedLocations();
+
+      if (service is AndroidServiceInstance) {
+        service.updateNotificationInfo(
+          title: "Tracking Offline - $vehicleCode",
+          content: "Buffered ${queued.length} points locally",
+        );
+      }
+
+      // Notify UI isolate
+      service.invoke('location_update', {
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'speed': speedKmh,
+        'status': 'Offline (Buffered)',
+        'timestamp': timestamp,
+        'queued_count': queued.length
+      });
+    }
+  });
+
+  // Cleanup logic
+  service.on('stopService').listen((event) {
+    positionStream?.cancel();
+  });
+}
+
+Future<void> _syncOfflineDataInBackground(String apiUrl, String vehicleCode, String cityId) async {
+  final queued = await DatabaseHelper.instance.getQueuedLocations();
+  if (queued.isEmpty) return;
+
+  List<int> syncedIds = [];
+  final uri = Uri.parse('$apiUrl/api/location');
+
+  for (var row in queued) {
+    try {
+      final payload = Map<String, dynamic>.from(row);
+      payload.remove('id'); // Remove local SQLite ID
+      
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 3));
+      
+      if (response.statusCode == 200) {
+        syncedIds.add(row['id'] as int);
+      } else {
+        break; // Stop syncing on first network failure
+      }
+    } catch (e) {
+      break; // Network unreachable
+    }
+  }
+
+  if (syncedIds.isNotEmpty) {
+    await DatabaseHelper.instance.deleteLocations(syncedIds);
+  }
 }
 
 class DatabaseHelper {
@@ -72,6 +265,7 @@ class EVanDriverApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'E-Van Tracker Driver',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.green,
         scaffoldBackgroundColor: Colors.grey[100],
@@ -195,15 +389,48 @@ class TrackingScreen extends StatefulWidget {
 
 class _TrackingScreenState extends State<TrackingScreen> {
   bool _isTracking = false;
-  Timer? _timer;
   int _queuedPoints = 0;
   String _statusMessage = "Ready to start";
-  Position? _lastSentPosition;
+  StreamSubscription? _serviceSubscription;
 
   @override
   void initState() {
     super.initState();
+    _checkServiceStatus();
+  }
+
+  @override
+  void dispose() {
+    _serviceSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkServiceStatus() async {
+    final isRunning = await FlutterBackgroundService().isRunning();
+    setState(() {
+      _isTracking = isRunning;
+      if (isRunning) {
+        _statusMessage = "Tracking active in background";
+        _subscribeToServiceUpdates();
+      }
+    });
     _updateQueueCount();
+  }
+
+  void _subscribeToServiceUpdates() {
+    _serviceSubscription?.cancel();
+    _serviceSubscription = FlutterBackgroundService().on('location_update').listen((event) {
+      if (event != null && mounted) {
+        setState(() {
+          final speed = event['speed'] as double? ?? 0.0;
+          final status = event['status'] as String? ?? 'Online';
+          final queued = event['queued_count'] as int? ?? 0;
+          
+          _statusMessage = "Tracking: ${speed.toStringAsFixed(1)} km/h ($status)";
+          _queuedPoints = queued;
+        });
+      }
+    });
   }
 
   Future<void> _updateQueueCount() async {
@@ -217,6 +444,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
     final queued = await DatabaseHelper.instance.getQueuedLocations();
     if (queued.isEmpty) return;
 
+    setState(() {
+      _statusMessage = "Syncing buffered data...";
+    });
+
     List<int> syncedIds = [];
     final uri = Uri.parse('${widget.apiUrl}/api/location');
 
@@ -229,20 +460,25 @@ class _TrackingScreenState extends State<TrackingScreen> {
           uri,
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(payload),
-        );
+        ).timeout(const Duration(seconds: 3));
         
         if (response.statusCode == 200) {
           syncedIds.add(row['id'] as int);
         }
       } catch (e) {
-        break; // Stop syncing on first error (likely still offline)
+        break; // Stop syncing on first error
       }
     }
 
     if (syncedIds.isNotEmpty) {
       await DatabaseHelper.instance.deleteLocations(syncedIds);
-      _updateQueueCount();
+      await _updateQueueCount();
     }
+    
+    final isRunning = await FlutterBackgroundService().isRunning();
+    setState(() {
+      _statusMessage = isRunning ? "Tracking active in background" : "Ready to start";
+    });
   }
 
   Future<void> _startTracking() async {
@@ -254,92 +490,42 @@ class _TrackingScreenState extends State<TrackingScreen> {
         return;
       }
     }
+    
+    if (permission == LocationPermission.deniedForever) {
+      setState(() => _statusMessage = "Location permissions permanently denied!");
+      return;
+    }
+
+    // Save configuration before starting background service
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('vehicle_code', widget.vehicleCode);
+    await prefs.setString('api_url', widget.apiUrl);
+
+    final service = FlutterBackgroundService();
+    final isRunning = await service.isRunning();
+    if (!isRunning) {
+      setState(() {
+        _statusMessage = "Starting service...";
+      });
+      await service.startService();
+    }
 
     setState(() {
       _isTracking = true;
-      _statusMessage = "Acquiring GPS...";
+      _statusMessage = "Tracking started";
     });
-
-    _timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
-      try {
-        Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.bestForNavigation);
-            
-        // Reject inaccurate GPS locks (e.g. cell tower triangulation instead of actual satellite GPS)
-        if (position.accuracy > 30.0) {
-          return; // Skip and wait for a stronger GPS signal
-        }
-        
-        // Filter out GPS drift (ignore movements less than 10 meters)
-        if (_lastSentPosition != null) {
-          double distance = Geolocator.distanceBetween(
-            _lastSentPosition!.latitude, _lastSentPosition!.longitude,
-            position.latitude, position.longitude
-          );
-          if (distance < 10.0) {
-            return; // Skip sending to avoid spiderweb jitter when parked
-          }
-        }
-        
-        _lastSentPosition = position;
-
-        final cityId = widget.vehicleCode.split('-').first;
-        
-        final payload = {
-          "vehicle_id": widget.vehicleCode,
-          "city_id": cityId,
-          "lat": position.latitude,
-          "lng": position.longitude,
-          "speed": (position.speed * 3.6), // m/s to km/h
-          "timestamp": DateTime.now().toUtc().toIso8601String(),
-          "source": "app"
-        };
-
-        setState(() {
-          _statusMessage = "Tracking: ${position.speed.toStringAsFixed(1)} m/s";
-        });
-
-        // Try syncing old data first
-        await _syncOfflineData();
-
-        // Send current data
-        final url = Uri.parse('${widget.apiUrl}/api/location'); 
-        final response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(payload),
-        );
-
-        if (response.statusCode != 200) {
-          throw Exception("Server rejected data");
-        }
-      } catch (e) {
-        // Offline logic
-        final cityId = widget.vehicleCode.split('-').first;
-        Position? lastPos = await Geolocator.getLastKnownPosition();
-        if (lastPos != null) {
-           await DatabaseHelper.instance.insertLocation({
-             "vehicle_id": widget.vehicleCode,
-             "city_id": cityId,
-             "lat": lastPos.latitude,
-             "lng": lastPos.longitude,
-             "speed": (lastPos.speed * 3.6),
-             "timestamp": DateTime.now().toUtc().toIso8601String(),
-             "source": "app-offline"
-           });
-           setState(() => _statusMessage = "Offline (Saved locally)");
-           _updateQueueCount();
-        }
-      }
-    });
+    _subscribeToServiceUpdates();
   }
 
-  void _stopTracking() {
-    _timer?.cancel();
+  void _stopTracking() async {
+    final service = FlutterBackgroundService();
+    service.invoke("stopService");
+    _serviceSubscription?.cancel();
     setState(() {
       _isTracking = false;
-      _statusMessage = "Tracking Stopped";
+      _statusMessage = "Tracking stopped";
     });
+    await _updateQueueCount();
   }
 
   void _logout() async {
@@ -360,6 +546,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       appBar: AppBar(
         title: Text(widget.vehicleCode),
         backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(

@@ -148,8 +148,15 @@ app.get('/api/vehicles', async (req, res) => {
 // Create a new vehicle
 app.post('/api/vehicles', async (req, res) => {
   try {
-    const { vehicle_code, driver_name, city_id } = req.body;
-    const { data, error } = await supabase.from('vehicles').insert([{ vehicle_code, driver_name, city_id }]).select();
+    const { vehicle_code, driver_name, city_id, route_id, battery_level } = req.body;
+    
+    // Build payload dynamically to avoid schema errors if battery_level column doesn't exist
+    const payload = { vehicle_code, driver_name, city_id };
+    if (route_id) payload.route_id = route_id;
+    // Note: If battery_level is added to Supabase in future, uncomment the next line
+    // if (battery_level) payload.battery_level = battery_level;
+
+    const { data, error } = await supabase.from('vehicles').insert([payload]).select();
     if (error) throw error;
     res.json({ success: true, data: data[0] });
   } catch (error) {

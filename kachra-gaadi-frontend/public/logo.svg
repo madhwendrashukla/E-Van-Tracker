@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <rect width="120" height="120" rx="24" fill="#16a34a"/>
+  
+  <g fill="#ffffff">
+    <!-- Back cargo box -->
+    <rect x="25" y="32" width="38" height="42" rx="4" />
+    
+    <!-- Cabin -->
+    <path d="M65 42 h 12 l 12 18 v 14 h -24 Z" />
+    
+    <!-- Cabin Window -->
+    <path d="M 69 45 h 7 l 5 9 h -12 Z" fill="#16a34a" />
+
+    <!-- Headlight -->
+    <rect x="86" y="60" width="6" height="6" rx="1.5" fill="#16a34a"/>
+
+    <!-- Wheels -->
+    <circle cx="42" cy="76" r="10" />
+    <circle cx="42" cy="76" r="5" fill="#16a34a" />
+    
+    <circle cx="78" cy="76" r="10" />
+    <circle cx="78" cy="76" r="5" fill="#16a34a" />
+    
+    <!-- Tail light dot -->
+    <circle cx="32" cy="62" r="3" fill="#16a34a" />
+
+    <!-- Location Pin -->
+    <path d="M 44 38 c 6.5 0, 11 5, 11 11 c 0, 9 -11, 18 -11, 18 c 0,0 -11,-9 -11,-18 c 0,-6 4.5,-11 11,-11 Z" fill="#16a34a" />
+    <circle cx="44" cy="49" r="3.5" fill="#ffffff" />
+  </g>
+</svg>
