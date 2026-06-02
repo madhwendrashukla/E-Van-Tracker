@@ -256,14 +256,22 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
   // Toggle history visibility
   useEffect(() => {
-    if (!polylinesRef.current[vehicleLocation?.vehicle_id] || !mapRef.current) return;
-    const polyline = polylinesRef.current[vehicleLocation.vehicle_id];
+    if (!mapRef.current || !vehicleLocation?.vehicle_id) return;
+    const vid = vehicleLocation.vehicle_id;
     
-    // Mappls polyline opacity can be toggled by recreating it or changing styles
-    if (showHistory) {
-      polyline.setOptions({ strokeOpacity: 0.8 });
-    } else {
-      polyline.setOptions({ strokeOpacity: 0.0 });
+    if (polylinesRef.current[vid]) {
+      mapRef.current.removeLayer(polylinesRef.current[vid]);
+      polylinesRef.current[vid] = null;
+    }
+
+    if (showHistory && livePathRef.current.length > 1) {
+      polylinesRef.current[vid] = new window.mappls.Polyline({
+        map: mapRef.current,
+        paths: livePathRef.current,
+        strokeColor: '#10b981',
+        strokeOpacity: 0.8,
+        strokeWeight: 4
+      });
     }
   }, [showHistory, vehicleLocation?.vehicle_id]);
 
@@ -285,9 +293,9 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       initialZoomDoneRef.current = true;
     }
 
-    // Append new coordinates to traveled trail polyline
+    // Append new coordinates to traveled trail polyline (smooth GPS drift with 20m threshold)
     const lastPoint = livePathRef.current[livePathRef.current.length - 1];
-    if (!lastPoint || getDistanceInMeters(lastPoint.lat, lastPoint.lng, lat, lng) > 2.0) {
+    if (!lastPoint || getDistanceInMeters(lastPoint.lat, lastPoint.lng, lat, lng) > 20.0) {
       livePathRef.current.push({ lat, lng });
       
       if (polylinesRef.current[vid]) {
@@ -307,13 +315,15 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
           onDistanceUpdate(dist);
         }
 
-        polylinesRef.current[vid] = new window.mappls.Polyline({
-          map: mapRef.current,
-          paths: livePathRef.current,
-          strokeColor: '#10b981',
-          strokeOpacity: showHistory ? 0.8 : 0.0,
-          strokeWeight: 4
-        });
+        if (showHistory) {
+          polylinesRef.current[vid] = new window.mappls.Polyline({
+            map: mapRef.current,
+            paths: livePathRef.current,
+            strokeColor: '#10b981',
+            strokeOpacity: 0.8,
+            strokeWeight: 4
+          });
+        }
       }
     }
 
@@ -343,7 +353,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       }
 
       // If we are somewhat close to the route, trim it so the route starts near the vehicle
-      if (minDistance < 200) { // only snap/trim if within 200m of the route
+      if (minDistance < 200 && closestIdx > 0) { // only snap/trim if within 200m of the route and not already at index 0
         setOsrmRoute(prev => prev.slice(closestIdx));
       }
     }
