@@ -85,9 +85,14 @@ export default function TrackVehicle({ params }) {
       .then(json => {
         if (json.success) {
           setRouteData(json.data);
+        } else {
+          setRouteData(false);
         }
       })
-      .catch(err => console.error("Error fetching route", err));
+      .catch(err => {
+        console.error("Error fetching route", err);
+        setRouteData(false);
+      });
   }, [vehicleCode]);
 
   // ETA Calculation
@@ -283,8 +288,8 @@ export default function TrackVehicle({ params }) {
             <div>
               <p className="text-[11px] text-gray-500 font-bold mb-0.5">Current Route</p>
               <div className="flex items-center gap-2">
-                <p className="text-[13px] font-extrabold text-gray-800">{routeData ? (routeData.name || 'Unassigned Route') : 'Loading Route...'}</p>
-                <span className="bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0] text-[10px] px-2 py-0.5 rounded-full font-bold">{routeData ? 'On Route' : 'No Route'}</span>
+                <p className="text-[13px] font-extrabold text-gray-800">{routeData === false ? 'Unassigned Route' : (routeData ? routeData.name : 'Loading Route...')}</p>
+                <span className="bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0] text-[10px] px-2 py-0.5 rounded-full font-bold">{routeData === false ? 'No Route' : (routeData ? 'On Route' : 'Loading')}</span>
               </div>
             </div>
           </div>
@@ -306,7 +311,7 @@ export default function TrackVehicle({ params }) {
             <div>
               <p className="text-[11px] text-gray-500 font-bold mb-0.5">Est. Next Stop</p>
               <div className="flex items-center gap-3">
-                <p className="text-[13px] font-extrabold text-gray-800">{etaInfo?.stopName || (routeData ? 'Calculating...' : 'Waiting for Route...')}</p>
+                <p className="text-[13px] font-extrabold text-gray-800">{etaInfo?.stopName || (routeData === false ? 'No Route Assigned' : (routeData ? 'Calculating...' : 'Waiting for Route...'))}</p>
                 <p className="text-[11px] text-gray-500 font-semibold">{etaInfo?.minutes ? `ETA: ${etaInfo.minutes} mins` : 'ETA: --'}</p>
               </div>
             </div>

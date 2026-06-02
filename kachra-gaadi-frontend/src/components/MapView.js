@@ -238,13 +238,15 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
             mapRef.current.removeLayer(polylinesRef.current[vehicleLocation.vehicle_id]);
           }
 
-          polylinesRef.current[vehicleLocation.vehicle_id] = new window.mappls.Polyline({
-            map: mapRef.current,
-            paths: livePathRef.current,
-            strokeColor: '#10b981',
-            strokeOpacity: 0.8,
-            strokeWeight: 4
-          });
+          if (showHistory) {
+            polylinesRef.current[vehicleLocation.vehicle_id] = new window.mappls.Polyline({
+              map: mapRef.current,
+              paths: livePathRef.current,
+              strokeColor: '#10b981',
+              strokeOpacity: 0.8,
+              strokeWeight: 4
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to load vehicle history logs:", err);

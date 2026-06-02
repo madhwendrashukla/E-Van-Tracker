@@ -340,7 +340,7 @@ app.get('/api/vehicles/:vehicleCode/route', async (req, res) => {
     const { data: vehicle, error: vError } = await supabase
       .from('vehicles')
       .select('route_id')
-      .eq('vehicle_code', vehicleCode)
+      .ilike('vehicle_code', vehicleCode)
       .single();
 
     if (vError || !vehicle || !vehicle.route_id) {
