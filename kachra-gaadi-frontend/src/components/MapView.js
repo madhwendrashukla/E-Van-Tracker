@@ -233,6 +233,16 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         if (json.success && json.data && json.data.length > 0) {
           const historyPath = json.data.map(p => ({ lat: p.lat, lng: p.lng }));
           livePathRef.current = historyPath;
+
+          if (historyPath.length > 1) {
+            let dist = 0;
+            for (let i = 0; i < historyPath.length - 1; i++) {
+              dist += getDistanceInMeters(historyPath[i].lat, historyPath[i].lng, historyPath[i+1].lat, historyPath[i+1].lng) / 1000;
+            }
+            if (typeof onDistanceUpdate === 'function') {
+              onDistanceUpdate(dist);
+            }
+          }
           
           if (polylinesRef.current[vehicleLocation.vehicle_id]) {
             mapRef.current.removeLayer(polylinesRef.current[vehicleLocation.vehicle_id]);
@@ -286,11 +296,9 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
     
     handleLocationUpdate(vid, lat, lng, vehicleLocation.speed, vehicleLocation.timestamp);
     
-    // Pan to target vehicle coordinates on update
-    mapRef.current.setCenter({ lat, lng });
-    
-    // On the very first lock-on, zoom in closely to the vehicle so the user doesn't have to scroll
+    // On the very first lock-on, zoom in closely to the vehicle and center it
     if (!initialZoomDoneRef.current) {
+      mapRef.current.setCenter({ lat, lng });
       mapRef.current.setZoom(16);
       initialZoomDoneRef.current = true;
     }
@@ -338,7 +346,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       plannedStops.forEach(stop => {
         if (!newVisitedStops.includes(stop.stop_order)) {
           const distToStop = getDistanceInMeters(lat, lng, stop.lat, stop.lng);
-          if (distToStop < 50.0) { // 50m radius
+          if (distToStop < 200.0) { // 200m radius to account for GPS inaccuracy
             newVisitedStops.push(stop.stop_order);
             changed = true;
           }
@@ -370,7 +378,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       }
 
       // If we are somewhat close to the route, trim it so the route starts near the vehicle
-      if (minDistance < 200 && closestIdx > 0) { // only snap/trim if within 200m of the route and not already at index 0
+      if (minDistance < 500 && closestIdx > 0) { // snap/trim if within 500m of the route
         setOsrmRoute(prev => prev.slice(closestIdx));
       }
     }
