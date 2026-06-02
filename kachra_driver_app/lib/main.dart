@@ -9,9 +9,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   await initializeService();
   runApp(const EVanDriverApp());
 }
@@ -24,7 +26,6 @@ Future<void> initializeService() async {
       onStart: onStart,
       autoStart: false, // Start only when driver hits 'Start Shift'
       isForegroundMode: true,
-      notificationChannelId: 'van_tracker_foreground',
       initialNotificationTitle: 'E-Van Tracker',
       initialNotificationContent: 'Driver shift ready',
       foregroundServiceTypes: [AndroidForegroundType.location],
@@ -53,7 +54,7 @@ void onStart(ServiceInstance service) async {
     });
 
     service.on('setAsBackground').listen((event) {
-      service.setAsBackgroundScreen();
+      service.setAsBackgroundService();
     });
   }
 
@@ -112,7 +113,7 @@ void onStart(ServiceInstance service) async {
 
       if (response.statusCode == 200) {
         if (service is AndroidServiceInstance) {
-          service.updateNotificationInfo(
+          service.setForegroundNotificationInfo(
             title: "Tracking Active - $vehicleCode",
             content: "Speed: ${speedKmh.toStringAsFixed(1)} km/h | Status: Online",
           );
@@ -148,7 +149,7 @@ void onStart(ServiceInstance service) async {
       final queued = await DatabaseHelper.instance.getQueuedLocations();
 
       if (service is AndroidServiceInstance) {
-        service.updateNotificationInfo(
+        service.setForegroundNotificationInfo(
           title: "Tracking Offline - $vehicleCode",
           content: "Buffered ${queued.length} points locally",
         );
@@ -482,6 +483,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   Future<void> _startTracking() async {
+    // Android 13+ requires explicit notification permission
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
+
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();

@@ -49,6 +49,9 @@ const createVehicleMarkerHtml = (vid, bearing, isOnline) => {
 
 export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], onDistanceUpdate }) {
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [visitedStops, setVisitedStops] = useState([]);
+  const [osrmRoute, setOsrmRoute] = useState([]);
   const mapRef = useRef(null);
   const markersRef = useRef({});
   const polylinesRef = useRef({});
@@ -184,7 +187,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         startLng = currentAnim.currentLng;
 
         const distance = getDistanceInMeters(startLat, startLng, lat, lng);
-        if (distance > 1.5) { // Avoid compass jitter when parked
+        if (distance > 10.0) { // Avoid compass jitter by increasing threshold to 10m
           bearing = getBearing(startLat, startLng, lat, lng);
         } else {
           bearing = currentAnim.bearing;
@@ -251,6 +254,19 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
     fetchHistory();
   }, [mapLoaded, vehicleLocation?.vehicle_id, isAdmin, backendUrl]);
 
+  // Toggle history visibility
+  useEffect(() => {
+    if (!polylinesRef.current[vehicleLocation?.vehicle_id] || !mapRef.current) return;
+    const polyline = polylinesRef.current[vehicleLocation.vehicle_id];
+    
+    // Mappls polyline opacity can be toggled by recreating it or changing styles
+    if (showHistory) {
+      polyline.setOptions({ strokeOpacity: 0.8 });
+    } else {
+      polyline.setOptions({ strokeOpacity: 0.0 });
+    }
+  }, [showHistory, vehicleLocation?.vehicle_id]);
+
   // Handle Single Vehicle Updates (Citizen View)
   useEffect(() => {
     if (!mapLoaded || !mapRef.current || !window.mappls || isAdmin || !vehicleLocation) return;
@@ -295,12 +311,44 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
           map: mapRef.current,
           paths: livePathRef.current,
           strokeColor: '#10b981',
-          strokeOpacity: 0.8,
+          strokeOpacity: showHistory ? 0.8 : 0.0,
           strokeWeight: 4
         });
       }
     }
-  }, [mapLoaded, vehicleLocation, isAdmin]);
+
+    // Dynamic Route Trimming and Checkpoint Ticking
+    if (!isAdmin && plannedStops.length > 0 && osrmRoute.length > 0) {
+      // 1. Tick off checkpoints within 50 meters
+      plannedStops.forEach(stop => {
+        if (!visitedStops.includes(stop.stop_order)) {
+          const distToStop = getDistanceInMeters(lat, lng, stop.lat, stop.lng);
+          if (distToStop < 50.0) { // 50m radius
+            setVisitedStops(prev => [...prev, stop.stop_order]);
+          }
+        }
+      });
+
+      // 2. Trim the OSRM route behind the vehicle
+      let closestIdx = 0;
+      let minDistance = Infinity;
+      
+      for (let i = 0; i < osrmRoute.length; i++) {
+        const point = osrmRoute[i];
+        const dist = getDistanceInMeters(lat, lng, point.lat, point.lng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestIdx = i;
+        }
+      }
+
+      // If we are somewhat close to the route, trim it so the route starts near the vehicle
+      if (minDistance < 200) { // only snap/trim if within 200m of the route
+        setOsrmRoute(prev => prev.slice(closestIdx));
+      }
+    }
+
+  }, [mapLoaded, vehicleLocation, isAdmin, plannedStops, osrmRoute, visitedStops, showHistory]);
 
   // Handle Multiple Vehicle Updates (Admin View)
   useEffect(() => {
@@ -338,16 +386,39 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         mapRef.current.removeLayer(plannedRouteLineRef.current);
       }
 
+      // Fetch OSRM Road Route (Only once per stop list change)
       if (plannedStops.length > 1 && !isBuilderMode) {
-        const path = plannedStops.map(s => ({ lat: s.lat, lng: s.lng }));
-        plannedRouteLineRef.current = new window.mappls.Polyline({
-          map: mapRef.current,
-          paths: path,
-          strokeColor: '#3b82f6',
-          strokeOpacity: 0.8,
-          strokeWeight: 4,
-          dashArray: [10, 10]
-        });
+        if (osrmRoute.length === 0) {
+          const fetchRoute = async () => {
+            try {
+              // Construct OSRM coordinate string: lon,lat;lon,lat
+              const coordString = plannedStops.map(s => `${s.lng},${s.lat}`).join(';');
+              const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`);
+              const data = await res.json();
+              if (data.routes && data.routes.length > 0) {
+                const geometry = data.routes[0].geometry.coordinates; // Array of [lng, lat]
+                const path = geometry.map(coord => ({ lat: coord[1], lng: coord[0] }));
+                setOsrmRoute(path);
+              }
+            } catch(e) {
+              console.error("OSRM Routing failed:", e);
+              // Fallback to straight lines
+              setOsrmRoute(plannedStops.map(s => ({ lat: s.lat, lng: s.lng })));
+            }
+          };
+          fetchRoute();
+        }
+
+        // Draw solid blue road-snapped line
+        if (osrmRoute.length > 0) {
+          plannedRouteLineRef.current = new window.mappls.Polyline({
+            map: mapRef.current,
+            paths: osrmRoute,
+            strokeColor: '#3b82f6',
+            strokeOpacity: 0.8,
+            strokeWeight: 5
+          });
+        }
       }
     } else {
       if (plannedRouteLineRef.current) {
@@ -377,6 +448,19 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
           </div>
         )}
       </div>
+
+      {/* History Toggle UI */}
+      {mapLoaded && !isAdmin && (
+        <div className="absolute bottom-6 right-6 z-10 bg-white p-3 rounded-lg shadow-lg border border-gray-100 flex items-center space-x-3">
+          <span className="text-sm font-medium text-gray-700">Show History</span>
+          <button 
+            onClick={() => setShowHistory(!showHistory)}
+            className={`w-11 h-6 rounded-full relative transition-colors duration-200 focus:outline-none ${showHistory ? 'bg-emerald-500' : 'bg-gray-300'}`}
+          >
+            <span className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ${showHistory ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
