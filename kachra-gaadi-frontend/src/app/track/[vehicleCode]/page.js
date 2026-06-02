@@ -95,34 +95,32 @@ export default function TrackVehicle({ params }) {
       });
   }, [vehicleCode]);
 
+  const [targetStop, setTargetStop] = useState(null);
+
   // ETA Calculation
   useEffect(() => {
-    if (location && routeData && routeData.stops && routeData.stops.length > 0) {
-      // Find the closest stop for MVP ETA
-      let nextStop = routeData.stops[0];
-      let minDistance = Infinity;
-
-      routeData.stops.forEach(stop => {
-        const dist = getDistanceFromLatLonInKm(location.lat, location.lng, stop.lat, stop.lng);
-        if (dist < minDistance) {
-          minDistance = dist;
-          nextStop = stop;
-        }
-      });
+    if (location && routeData && targetStop) {
+      const dist = getDistanceFromLatLonInKm(location.lat, location.lng, targetStop.lat, targetStop.lng);
 
       // Simple ETA calculation: distance (km) / avg speed (km/h) = hours
       // Assume 15km/h avg if stationary
       const avgSpeed = location.speed > 2 ? location.speed : 15;
-      const hours = minDistance / avgSpeed;
+      const hours = dist / avgSpeed;
       const minutes = Math.ceil(hours * 60);
 
       setEtaInfo({
-        stopName: nextStop.name,
-        distance: minDistance.toFixed(2),
+        stopName: targetStop.name,
+        distance: dist.toFixed(2),
         minutes
       });
+    } else if (routeData && routeData.stops && routeData.stops.length > 0 && !targetStop) {
+      setEtaInfo({
+        stopName: "Route Completed",
+        distance: "0.00",
+        minutes: 0
+      });
     }
-  }, [location, routeData]);
+  }, [location, routeData, targetStop]);
 
   // Timer for 'Last Updated' indicator
   useEffect(() => {
@@ -200,6 +198,7 @@ export default function TrackVehicle({ params }) {
           plannedStops={routeData?.stops || []} 
           onDistanceUpdate={(dist) => setDistanceTraveled(dist)}
           focusRouteTrigger={focusRouteTrigger}
+          onNextStopUpdate={(stop) => setTargetStop(stop)}
         />
       </main>
 

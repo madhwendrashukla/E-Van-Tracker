@@ -47,7 +47,7 @@ const createVehicleMarkerHtml = (vid, bearing, isOnline) => {
   `;
 };
 
-export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], onDistanceUpdate, focusRouteTrigger = 0 }) {
+export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], onDistanceUpdate, focusRouteTrigger = 0, onNextStopUpdate }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [visitedStops, setVisitedStops] = useState([]);
@@ -330,20 +330,35 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
     }
 
     // Dynamic Route Trimming and Checkpoint Ticking
-    if (!isAdmin && plannedStops.length > 0 && osrmRoute.length > 0) {
+    if (!isAdmin && plannedStops.length > 0) {
       // 1. Tick off checkpoints within 50 meters
+      let newVisitedStops = [...visitedStops];
+      let changed = false;
+
       plannedStops.forEach(stop => {
-        if (!visitedStops.includes(stop.stop_order)) {
+        if (!newVisitedStops.includes(stop.stop_order)) {
           const distToStop = getDistanceInMeters(lat, lng, stop.lat, stop.lng);
           if (distToStop < 50.0) { // 50m radius
-            setVisitedStops(prev => [...prev, stop.stop_order]);
+            newVisitedStops.push(stop.stop_order);
+            changed = true;
           }
         }
       });
 
+      if (changed) {
+        setVisitedStops(newVisitedStops);
+      }
+
+      // Tell parent which stop is next (first unvisited)
+      if (typeof onNextStopUpdate === 'function') {
+        const nextStop = plannedStops.find(s => !newVisitedStops.includes(s.stop_order));
+        onNextStopUpdate(nextStop || null);
+      }
+
       // 2. Trim the OSRM route behind the vehicle
-      let closestIdx = 0;
-      let minDistance = Infinity;
+      if (osrmRoute.length > 0) {
+        let closestIdx = 0;
+        let minDistance = Infinity;
       
       for (let i = 0; i < osrmRoute.length; i++) {
         const point = osrmRoute[i];
@@ -359,7 +374,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         setOsrmRoute(prev => prev.slice(closestIdx));
       }
     }
-
+  }
   }, [mapLoaded, vehicleLocation, isAdmin, plannedStops, osrmRoute, visitedStops, showHistory]);
 
   // Handle Multiple Vehicle Updates (Admin View)
