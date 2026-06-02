@@ -231,13 +231,27 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         const res = await fetch(`${backendUrl}/api/location/history/${vehicleLocation.vehicle_id}`);
         const json = await res.json();
         if (json.success && json.data && json.data.length > 0) {
-          const historyPath = json.data.map(p => ({ lat: p.lat, lng: p.lng }));
-          livePathRef.current = historyPath;
+          const rawPath = json.data.map(p => ({ lat: p.lat, lng: p.lng }));
+          
+          // Smooth the path by ignoring tiny GPS drifts (< 20m)
+          const smoothedPath = [];
+          if (rawPath.length > 0) {
+            smoothedPath.push(rawPath[0]);
+            for (let i = 1; i < rawPath.length; i++) {
+              const lastPoint = smoothedPath[smoothedPath.length - 1];
+              const d = getDistanceInMeters(lastPoint.lat, lastPoint.lng, rawPath[i].lat, rawPath[i].lng);
+              if (d > 20.0) {
+                smoothedPath.push(rawPath[i]);
+              }
+            }
+          }
+          
+          livePathRef.current = smoothedPath;
 
-          if (historyPath.length > 1) {
+          if (smoothedPath.length > 1) {
             let dist = 0;
-            for (let i = 0; i < historyPath.length - 1; i++) {
-              dist += getDistanceInMeters(historyPath[i].lat, historyPath[i].lng, historyPath[i+1].lat, historyPath[i+1].lng) / 1000;
+            for (let i = 0; i < smoothedPath.length - 1; i++) {
+              dist += getDistanceInMeters(smoothedPath[i].lat, smoothedPath[i].lng, smoothedPath[i+1].lat, smoothedPath[i+1].lng) / 1000;
             }
             if (typeof onDistanceUpdate === 'function') {
               onDistanceUpdate(dist);
