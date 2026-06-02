@@ -411,12 +411,16 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
   // Render Planned Stops and route connections (Builder or Track Mode)
   const plannedStopsMarkersRef = useRef([]);
   const plannedRouteLineRef = useRef(null);
+  const routeFetchedForRef = useRef("");
 
   useEffect(() => {
     if (!mapLoaded || !mapRef.current || !window.mappls) return;
 
     // Clear old stops pins
-    plannedStopsMarkersRef.current.forEach(m => mapRef.current.removeLayer(m));
+    plannedStopsMarkersRef.current.forEach(m => {
+      if (typeof m.remove === 'function') m.remove();
+      mapRef.current.removeLayer(m);
+    });
     plannedStopsMarkersRef.current = [];
 
     if (plannedStops.length > 0) {
@@ -439,7 +443,9 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
       // Fetch OSRM Road Route (Only once per stop list change)
       if (plannedStops.length > 1 && !isBuilderMode) {
-        if (osrmRoute.length === 0) {
+        const routeKey = plannedStops.map(s => s.stop_order).join(',');
+        if (osrmRoute.length === 0 && routeFetchedForRef.current !== routeKey) {
+          routeFetchedForRef.current = routeKey;
           const fetchRoute = async () => {
             try {
               // Construct OSRM coordinate string: lon,lat;lon,lat
