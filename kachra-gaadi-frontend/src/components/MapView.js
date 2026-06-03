@@ -47,6 +47,77 @@ const createVehicleMarkerHtml = (vid, bearing, isOnline) => {
   `;
 };
 
+let HTMLMarkerClass = null;
+
+function getHTMLMarkerClass() {
+  if (HTMLMarkerClass) return HTMLMarkerClass;
+  if (!window.google || !window.google.maps) return null;
+
+  HTMLMarkerClass = class extends window.google.maps.OverlayView {
+    constructor(lat, lng, html, map) {
+      super();
+      this.lat = lat;
+      this.lng = lng;
+      this.html = html;
+      this.div = null;
+      this.mapInstance = map;
+      this.infoWindow = new window.google.maps.InfoWindow({ content: '' });
+      this.isInfoWindowOpen = false;
+      
+      window.google.maps.event.addListener(this.infoWindow, 'closeclick', () => {
+        this.isInfoWindowOpen = false;
+      });
+    }
+    onAdd() {
+      this.div = document.createElement('div');
+      this.div.style.position = 'absolute';
+      // Center the div over the coordinate point
+      this.div.style.transform = 'translate(-50%, -50%)';
+      this.div.style.cursor = 'pointer';
+      this.div.innerHTML = this.html;
+      
+      this.div.addEventListener('click', () => {
+        this.infoWindow.setPosition({ lat: this.lat, lng: this.lng });
+        this.infoWindow.open(this.mapInstance);
+        this.isInfoWindowOpen = true;
+      });
+
+      const panes = this.getPanes();
+      panes.overlayMouseTarget.appendChild(this.div);
+    }
+    draw() {
+      if (!this.div) return;
+      const overlayProjection = this.getProjection();
+      if (!overlayProjection) return;
+      const pos = overlayProjection.fromLatLngToDivPixel(new window.google.maps.LatLng(this.lat, this.lng));
+      if (pos) {
+        this.div.style.left = pos.x + 'px';
+        this.div.style.top = pos.y + 'px';
+      }
+    }
+    onRemove() {
+      if (this.div && this.div.parentNode) {
+        this.div.parentNode.removeChild(this.div);
+        this.div = null;
+      }
+      this.infoWindow.close();
+      this.isInfoWindowOpen = false;
+    }
+    setPosition(lat, lng) {
+      this.lat = lat;
+      this.lng = lng;
+      this.draw();
+      if (this.isInfoWindowOpen) {
+        this.infoWindow.setPosition({ lat, lng });
+      }
+    }
+    setPopupHtml(html) {
+      this.infoWindow.setContent(html);
+    }
+  };
+  return HTMLMarkerClass;
+}
+
 export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], onDistanceUpdate, focusRouteTrigger = 0, onNextStopUpdate }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -59,23 +130,25 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
   const animationsRef = useRef({}); // Ref to track interpolations: { [vid]: { startLat, startLng, endLat, endLng, startTime, duration, bearing, currentLat, currentLng } }
   const initialZoomDoneRef = useRef(false);
 
-  const mapKey = process.env.NEXT_PUBLIC_MMI_MAP_KEY;
+  const mapKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
-  // Initialize MapmyIndia Map
+  // Initialize Google Map
   useEffect(() => {
     const checkMap = setInterval(() => {
-      if (window.mappls && document.getElementById('mmi-map')) {
+      if (window.google && window.google.maps && document.getElementById('g-map')) {
         if (!mapRef.current) {
-          mapRef.current = new window.mappls.Map('mmi-map', {
-            center: [26.8467, 80.9462], // Lucknow default coordinates
+          mapRef.current = new window.google.maps.Map(document.getElementById('g-map'), {
+            center: { lat: 26.8467, lng: 80.9462 }, // Lucknow default coordinates
             zoom: 12,
             zoomControl: true,
-            location: true
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false
           });
           
           if (isBuilderMode && typeof onMapClick === 'function') {
             mapRef.current.addListener('click', function(e) {
-              onMapClick(e.lngLat.lat, e.lngLat.lng);
+              onMapClick(e.latLng.lat(), e.latLng.lng());
             });
           }
           
@@ -113,7 +186,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         anim.currentLat = currentLat;
         anim.currentLng = currentLng;
 
-        marker.setPosition({ lat: currentLat, lng: currentLng });
+        marker.setPosition(currentLat, currentLng);
 
         // Update CSS rotation on marker container (offsetting by 90 deg for the left-facing truck emoji)
         const el = document.getElementById(`vehicle-marker-${vid}`);
@@ -140,26 +213,25 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
   // Unified helper to set targets and kick off sliding transition
   const handleLocationUpdate = (vid, lat, lng, speed, timestamp) => {
-    if (!mapRef.current || !window.mappls) return;
+    if (!mapRef.current || !window.google || !window.google.maps) return;
 
     const marker = markersRef.current[vid];
     const isOnline = (new Date() - new Date(timestamp)) < 300000;
-    const color = isOnline ? '#10b981' : '#64748b';
 
     if (!marker) {
+      const HTMLMarker = getHTMLMarkerClass();
+      if (!HTMLMarker) return;
+
       // First sighting: Create marker immediately
       const initialBearing = 0;
-      markersRef.current[vid] = new window.mappls.Marker({
-        map: mapRef.current,
-        position: { lat, lng },
-        html: createVehicleMarkerHtml(vid, initialBearing, isOnline),
-        width: 44,
-        height: 44,
-        popupHtml: `<div style="padding:5px; font-family:sans-serif;">
-                      <h4 style="margin:0; font-weight:bold;">${vid}</h4>
-                      <p style="margin:0; color:#666;">Speed: ${speed ? Number(speed).toFixed(1) : 0} km/h</p>
-                    </div>`
-      });
+      const htmlContent = createVehicleMarkerHtml(vid, initialBearing, isOnline);
+      
+      markersRef.current[vid] = new HTMLMarker(lat, lng, htmlContent, mapRef.current);
+      markersRef.current[vid].setPopupHtml(`<div style="padding:5px; font-family:sans-serif;">
+                                              <h4 style="margin:0; font-weight:bold;">${vid}</h4>
+                                              <p style="margin:0; color:#666;">Speed: ${speed ? Number(speed).toFixed(1) : 0} km/h</p>
+                                            </div>`);
+      markersRef.current[vid].setMap(mapRef.current);
 
       animationsRef.current[vid] = {
         startLat: lat,
@@ -205,14 +277,6 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         currentLat: startLat,
         currentLng: startLng
       };
-
-      // Set popup HTML dynamically
-      if (marker.setPopupHtml) {
-        marker.setPopupHtml(`<div style="padding:5px; font-family:sans-serif;">
-                               <h4 style="margin:0; font-weight:bold;">${vid}</h4>
-                               <p style="margin:0; color:#666;">Speed: ${speed ? Number(speed).toFixed(1) : 0} km/h</p>
-                             </div>`);
-      }
 
       // Sync DOM opacity if state changes
       const el = document.getElementById(`vehicle-marker-${vid}`);
@@ -261,13 +325,13 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
           }
           
           if (polylinesRef.current[vehicleLocation.vehicle_id]) {
-            mapRef.current.removeLayer(polylinesRef.current[vehicleLocation.vehicle_id]);
+            polylinesRef.current[vehicleLocation.vehicle_id].setMap(null);
           }
 
           if (showHistory && livePathRef.current.length > 1) {
-            polylinesRef.current[vehicleLocation.vehicle_id] = new window.mappls.Polyline({
+            polylinesRef.current[vehicleLocation.vehicle_id] = new window.google.maps.Polyline({
               map: mapRef.current,
-              paths: livePathRef.current,
+              path: livePathRef.current,
               strokeColor: '#10b981',
               strokeOpacity: 0.8,
               strokeWeight: 4
@@ -288,14 +352,14 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
     const vid = vehicleLocation.vehicle_id;
     
     if (polylinesRef.current[vid]) {
-      mapRef.current.removeLayer(polylinesRef.current[vid]);
+      polylinesRef.current[vid].setMap(null);
       polylinesRef.current[vid] = null;
     }
 
     if (showHistory && livePathRef.current.length > 1) {
-      polylinesRef.current[vid] = new window.mappls.Polyline({
+      polylinesRef.current[vid] = new window.google.maps.Polyline({
         map: mapRef.current,
-        paths: livePathRef.current,
+        path: livePathRef.current,
         strokeColor: '#10b981',
         strokeOpacity: 0.8,
         strokeWeight: 4
@@ -305,7 +369,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
   // Handle Single Vehicle Updates (Citizen View)
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || !window.mappls || isAdmin || !vehicleLocation) return;
+    if (!mapLoaded || !mapRef.current || !window.google || !window.google.maps || isAdmin || !vehicleLocation) return;
     
     const vid = vehicleLocation.vehicle_id;
     const { lat, lng } = vehicleLocation;
@@ -326,7 +390,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       livePathRef.current.push({ lat, lng });
       
       if (polylinesRef.current[vid]) {
-        mapRef.current.removeLayer(polylinesRef.current[vid]);
+        polylinesRef.current[vid].setMap(null);
         polylinesRef.current[vid] = null;
       }
 
@@ -343,9 +407,9 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         }
 
         if (showHistory) {
-          polylinesRef.current[vid] = new window.mappls.Polyline({
+          polylinesRef.current[vid] = new window.google.maps.Polyline({
             map: mapRef.current,
-            paths: livePathRef.current,
+            path: livePathRef.current,
             strokeColor: '#10b981',
             strokeOpacity: 0.8,
             strokeWeight: 4
@@ -404,7 +468,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
   // Handle Multiple Vehicle Updates (Admin View)
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || !window.mappls || !allVehicles || !isAdmin) return;
+    if (!mapLoaded || !mapRef.current || !window.google || !window.google.maps || !allVehicles || !isAdmin) return;
 
     Object.values(allVehicles).forEach(v => {
       handleLocationUpdate(v.vehicle_id, v.lat, v.lng, v.speed, v.timestamp);
@@ -417,23 +481,22 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
   const routeFetchedForRef = useRef("");
 
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || !window.mappls) return;
+    if (!mapLoaded || !mapRef.current || !window.google || !window.google.maps) return;
 
     // Clear old stops pins
     plannedStopsMarkersRef.current.forEach(m => {
-      if (typeof m.remove === 'function') m.remove();
-      mapRef.current.removeLayer(m);
+      m.setMap(null);
     });
     plannedStopsMarkersRef.current = [];
 
     if (plannedStops.length > 0) {
       plannedStops.forEach(stop => {
         if (!visitedStops.includes(stop.stop_order)) {
-          const marker = new window.mappls.Marker({
+          const marker = new window.google.maps.Marker({
             map: mapRef.current,
             position: { lat: stop.lat, lng: stop.lng },
-            popupHtml: `<div><b>${stop.name}</b> (Stop ${stop.stop_order})</div>`,
-            icon: 'https://apis.mapmyindia.com/map_v3/2.png'
+            title: `${stop.name} (Stop ${stop.stop_order})`,
+            icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
           });
           plannedStopsMarkersRef.current.push(marker);
         }
@@ -441,7 +504,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
       // Draw dashed blue route line connecting stops
       if (plannedRouteLineRef.current) {
-        mapRef.current.removeLayer(plannedRouteLineRef.current);
+        plannedRouteLineRef.current.setMap(null);
       }
 
       // Fetch OSRM Road Route (Only once per stop list change)
@@ -471,9 +534,9 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
         // Draw solid blue road-snapped line
         if (osrmRoute.length > 1) {
-          plannedRouteLineRef.current = new window.mappls.Polyline({
+          plannedRouteLineRef.current = new window.google.maps.Polyline({
             map: mapRef.current,
-            paths: osrmRoute,
+            path: osrmRoute,
             strokeColor: '#3b82f6',
             strokeOpacity: 0.8,
             strokeWeight: 5
@@ -482,7 +545,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       }
     } else {
       if (plannedRouteLineRef.current) {
-        mapRef.current.removeLayer(plannedRouteLineRef.current);
+        plannedRouteLineRef.current.setMap(null);
         plannedRouteLineRef.current = null;
       }
     }
@@ -506,19 +569,19 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
     <div className="absolute inset-0" style={{ width: '100%', height: '100%' }}>
       {mapKey && (
         <Script 
-          src={`https://apis.mappls.com/advancedmaps/api/${mapKey}/map_sdk?layer=vector&v=3.0`}
+          src={`https://maps.googleapis.com/maps/api/js?key=${mapKey}&libraries=geometry`}
           strategy="afterInteractive"
         />
       )}
       
-      <div id="mmi-map" style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
+      <div id="g-map" style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
         {!mapLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 backdrop-blur-sm z-10 flex-col">
             <svg className="animate-spin h-10 w-10 text-emerald-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p className="text-gray-600 font-medium">Initializing Map Engine...</p>
+            <p className="text-gray-600 font-medium">Initializing Google Map...</p>
           </div>
         )}
       </div>
