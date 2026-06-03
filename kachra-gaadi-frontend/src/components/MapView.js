@@ -264,7 +264,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
             mapRef.current.removeLayer(polylinesRef.current[vehicleLocation.vehicle_id]);
           }
 
-          if (showHistory) {
+          if (showHistory && livePathRef.current.length > 1) {
             polylinesRef.current[vehicleLocation.vehicle_id] = new window.mappls.Polyline({
               map: mapRef.current,
               paths: livePathRef.current,
@@ -321,7 +321,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
     // Append new coordinates to traveled trail polyline (aggressive anti-drift filter: 30m + >4km/h)
     const lastPoint = livePathRef.current[livePathRef.current.length - 1];
-    const truckSpeed = speed || 0;
+    const truckSpeed = vehicleLocation.speed || 0;
     if (!lastPoint || (getDistanceInMeters(lastPoint.lat, lastPoint.lng, lat, lng) > 30.0 && truckSpeed > 4.0)) {
       livePathRef.current.push({ lat, lng });
       
@@ -470,7 +470,7 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         }
 
         // Draw solid blue road-snapped line
-        if (osrmRoute.length > 0) {
+        if (osrmRoute.length > 1) {
           plannedRouteLineRef.current = new window.mappls.Polyline({
             map: mapRef.current,
             paths: osrmRoute,
