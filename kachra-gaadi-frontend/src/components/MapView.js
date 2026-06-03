@@ -231,17 +231,19 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         const res = await fetch(`${backendUrl}/api/location/history/${vehicleLocation.vehicle_id}`);
         const json = await res.json();
         if (json.success && json.data && json.data.length > 0) {
-          const rawPath = json.data.map(p => ({ lat: p.lat, lng: p.lng }));
+          const rawPath = json.data.map(p => ({ lat: p.lat, lng: p.lng, speed: p.speed }));
           
-          // Smooth the path by ignoring tiny GPS drifts (< 20m)
+          // Aggressively smooth the path by ignoring GPS drifts (distance < 30m) OR when parked (speed < 4 km/h)
           const smoothedPath = [];
           if (rawPath.length > 0) {
-            smoothedPath.push(rawPath[0]);
+            smoothedPath.push({ lat: rawPath[0].lat, lng: rawPath[0].lng });
             for (let i = 1; i < rawPath.length; i++) {
               const lastPoint = smoothedPath[smoothedPath.length - 1];
               const d = getDistanceInMeters(lastPoint.lat, lastPoint.lng, rawPath[i].lat, rawPath[i].lng);
-              if (d > 20.0) {
-                smoothedPath.push(rawPath[i]);
+              
+              // Only record path if the truck is actively driving
+              if (d > 30.0 && (rawPath[i].speed || 0) > 4.0) {
+                smoothedPath.push({ lat: rawPath[i].lat, lng: rawPath[i].lng });
               }
             }
           }
@@ -317,9 +319,10 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       initialZoomDoneRef.current = true;
     }
 
-    // Append new coordinates to traveled trail polyline (smooth GPS drift with 20m threshold)
+    // Append new coordinates to traveled trail polyline (aggressive anti-drift filter: 30m + >4km/h)
     const lastPoint = livePathRef.current[livePathRef.current.length - 1];
-    if (!lastPoint || getDistanceInMeters(lastPoint.lat, lastPoint.lng, lat, lng) > 20.0) {
+    const truckSpeed = speed || 0;
+    if (!lastPoint || (getDistanceInMeters(lastPoint.lat, lastPoint.lng, lat, lng) > 30.0 && truckSpeed > 4.0)) {
       livePathRef.current.push({ lat, lng });
       
       if (polylinesRef.current[vid]) {
