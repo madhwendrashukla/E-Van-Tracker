@@ -212,21 +212,43 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
   }, [mapLoaded]);
 
   // Unified helper to set targets and kick off sliding transition
-  const handleLocationUpdate = (vid, lat, lng, speed, timestamp) => {
-    if (!mapRef.current || !window.google || !window.google.maps) return;
+  const handleLocationUpdate = (vid, rawLat, rawLng, speed, timestamp) => {
+    if (!mapRef.current || !window.google || !window.google.maps || !vid) return;
+
+    // Check if the vehicle is online (active in the last 15 minutes)
+    const isOnline = (Date.now() - timestamp) < 15 * 60 * 1000;
+    
+    let displayLat = rawLat;
+    let displayLng = rawLng;
+
+    // 1. Snapping Logic: Snap vehicle to the blue route line if within 100m
+    if (!isAdmin && osrmRoute && osrmRoute.length > 0) {
+      let minDist = Infinity;
+      let snapPoint = null;
+      for (let i = 0; i < osrmRoute.length; i++) {
+        const d = getDistanceInMeters(rawLat, rawLng, osrmRoute[i].lat, osrmRoute[i].lng);
+        if (d < minDist) {
+          minDist = d;
+          snapPoint = osrmRoute[i];
+        }
+      }
+      if (minDist < 100 && snapPoint) {
+        displayLat = snapPoint.lat;
+        displayLng = snapPoint.lng;
+      }
+    }
 
     const marker = markersRef.current[vid];
-    const isOnline = (new Date() - new Date(timestamp)) < 300000;
+    const anim = animationsRef.current[vid];
 
     if (!marker) {
       const HTMLMarker = getHTMLMarkerClass();
       if (!HTMLMarker) return;
 
-      // First sighting: Create marker immediately
       const initialBearing = 0;
       const htmlContent = createVehicleMarkerHtml(vid, initialBearing, isOnline);
       
-      markersRef.current[vid] = new HTMLMarker(lat, lng, htmlContent, mapRef.current);
+      markersRef.current[vid] = new HTMLMarker(displayLat, displayLng, htmlContent, mapRef.current);
       markersRef.current[vid].setPopupHtml(`<div style="padding:5px; font-family:sans-serif;">
                                               <h4 style="margin:0; font-weight:bold;">${vid}</h4>
                                               <p style="margin:0; color:#666;">Speed: ${speed ? Number(speed).toFixed(1) : 0} km/h</p>
@@ -234,51 +256,37 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       markersRef.current[vid].setMap(mapRef.current);
 
       animationsRef.current[vid] = {
-        startLat: lat,
-        startLng: lng,
-        endLat: lat,
-        endLng: lng,
+        startLat: displayLat,
+        startLng: displayLng,
+        endLat: displayLat,
+        endLng: displayLng,
         startTime: 0,
-        duration: 2000,
+        duration: 1000,
         bearing: initialBearing,
-        currentLat: lat,
-        currentLng: lng
+        currentLat: displayLat,
+        currentLng: displayLng
       };
     } else {
-      // Subsequent updates: Trigger smooth sliding translation and rotation
-      const currentAnim = animationsRef.current[vid];
-      const now = performance.now();
+      const startLat = anim ? anim.currentLat : displayLat;
+      const startLng = anim ? anim.currentLng : displayLng;
+      let bearing = anim ? anim.bearing : getBearing(startLat, startLng, displayLat, displayLng);
 
-      let startLat = lat;
-      let startLng = lng;
-      let bearing = currentAnim?.bearing || 0;
-
-      if (currentAnim) {
-        // Start from the current visual position to prevent sudden jumps
-        startLat = currentAnim.currentLat;
-        startLng = currentAnim.currentLng;
-
-        const distance = getDistanceInMeters(startLat, startLng, lat, lng);
-        if (distance > 10.0) { // Avoid compass jitter by increasing threshold to 10m
-          bearing = getBearing(startLat, startLng, lat, lng);
-        } else {
-          bearing = currentAnim.bearing;
-        }
+      if (getDistanceInMeters(startLat, startLng, displayLat, displayLng) > 10.0) {
+        bearing = getBearing(startLat, startLng, displayLat, displayLng);
       }
 
       animationsRef.current[vid] = {
-        startLat,
-        startLng,
-        endLat: lat,
-        endLng: lng,
-        startTime: now,
-        duration: 2500, // 2.5s duration ensures smooth continuous sliding updates
-        bearing,
+        startLat: startLat,
+        startLng: startLng,
+        endLat: displayLat,
+        endLng: displayLng,
+        startTime: performance.now(),
+        duration: 1000,
+        bearing: bearing,
         currentLat: startLat,
         currentLng: startLng
       };
 
-      // Sync DOM opacity if state changes
       const el = document.getElementById(`vehicle-marker-${vid}`);
       if (el) {
         el.style.opacity = isOnline ? '1.0' : '0.5';
@@ -295,19 +303,19 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         const res = await fetch(`${backendUrl}/api/location/history/${vehicleLocation.vehicle_id}`);
         const json = await res.json();
         if (json.success && json.data && json.data.length > 0) {
-          const rawPath = json.data.map(p => ({ lat: p.lat, lng: p.lng, speed: p.speed }));
+          const rawPath = json.data.map(p => ({ lat: p.lat, lng: p.lng, speed: p.speed, timestamp: p.timestamp }));
           
           // Aggressively smooth the path by ignoring GPS drifts (distance < 30m) OR when parked (speed < 4 km/h)
           const smoothedPath = [];
           if (rawPath.length > 0) {
-            smoothedPath.push({ lat: rawPath[0].lat, lng: rawPath[0].lng });
+            smoothedPath.push({ lat: rawPath[0].lat, lng: rawPath[0].lng, timestamp: rawPath[0].timestamp });
             for (let i = 1; i < rawPath.length; i++) {
               const lastPoint = smoothedPath[smoothedPath.length - 1];
               const d = getDistanceInMeters(lastPoint.lat, lastPoint.lng, rawPath[i].lat, rawPath[i].lng);
               
               // Only record path if the truck is actively driving
               if (d > 30.0 && (rawPath[i].speed || 0) > 4.0) {
-                smoothedPath.push({ lat: rawPath[i].lat, lng: rawPath[i].lng });
+                smoothedPath.push({ lat: rawPath[i].lat, lng: rawPath[i].lng, timestamp: rawPath[i].timestamp });
               }
             }
           }
@@ -317,7 +325,16 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
           if (smoothedPath.length > 1) {
             let dist = 0;
             for (let i = 0; i < smoothedPath.length - 1; i++) {
-              dist += getDistanceInMeters(smoothedPath[i].lat, smoothedPath[i].lng, smoothedPath[i+1].lat, smoothedPath[i+1].lng) / 1000;
+              const p1 = smoothedPath[i];
+              const p2 = smoothedPath[i+1];
+              
+              // If there is a time gap > 1 hour, assume a new shift started and reset distance to 0
+              const timeGapMs = new Date(p2.timestamp) - new Date(p1.timestamp);
+              if (timeGapMs > 3600000) {
+                dist = 0;
+              } else {
+                dist += getDistanceInMeters(p1.lat, p1.lng, p2.lat, p2.lng) / 1000;
+              }
             }
             if (typeof onDistanceUpdate === 'function') {
               onDistanceUpdate(dist);
@@ -460,7 +477,12 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
       // If we are somewhat close to the route, trim it so the route starts near the vehicle
       if (minDistance < 500 && closestIdx > 0) { // snap/trim if within 500m of the route
-        setOsrmRoute(prev => prev.slice(closestIdx));
+        const trimmedPath = osrmRoute.slice(closestIdx);
+        // Instant visual update to remove trace simultaneously
+        if (plannedRouteLineRef.current) {
+          plannedRouteLineRef.current.setPath(trimmedPath);
+        }
+        setOsrmRoute(trimmedPath);
       }
     }
   }
@@ -491,15 +513,19 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
     if (plannedStops.length > 0) {
       plannedStops.forEach(stop => {
-        if (!visitedStops.includes(stop.stop_order)) {
-          const marker = new window.google.maps.Marker({
-            map: mapRef.current,
-            position: { lat: stop.lat, lng: stop.lng },
-            title: `${stop.name} (Stop ${stop.stop_order})`,
-            icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-          });
-          plannedStopsMarkersRef.current.push(marker);
-        }
+        const isVisited = visitedStops.includes(stop.stop_order);
+        const iconUrl = isVisited 
+          ? 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
+          : 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png';
+
+        const marker = new window.google.maps.Marker({
+          map: mapRef.current,
+          position: { lat: stop.lat, lng: stop.lng },
+          title: `${stop.name} (Stop ${stop.stop_order})`,
+          icon: iconUrl,
+          opacity: isVisited ? 0.6 : 1.0
+        });
+        plannedStopsMarkersRef.current.push(marker);
       });
 
       // Draw dashed blue route line connecting stops

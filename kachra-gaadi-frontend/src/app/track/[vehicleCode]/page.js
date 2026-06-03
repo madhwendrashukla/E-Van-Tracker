@@ -122,13 +122,7 @@ export default function TrackVehicle({ params }) {
     }
   }, [location, routeData, targetStop]);
 
-  // Timer for 'Last Updated' indicator
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLastUpdate((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Removed the unnecessary setInterval timer that forced re-renders every second
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-100 font-sans">
@@ -153,7 +147,7 @@ export default function TrackVehicle({ params }) {
         <div className="flex items-center gap-5">
           <div className="flex items-center gap-2 text-sm font-medium text-green-100/90">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-            Last updated: {new Date().toLocaleTimeString()}
+            Last updated: {location?.timestamp ? new Date(location.timestamp).toLocaleTimeString() : 'Waiting for GPS...'}
           </div>
           <button className="border border-[#559558] hover:bg-[#2d602f] transition-colors px-4 py-1.5 rounded-md flex items-center gap-2 text-sm font-semibold">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
@@ -228,7 +222,7 @@ export default function TrackVehicle({ params }) {
               </div>
               <div>
                 <p className="text-[11px] text-gray-500 font-semibold mb-0.5">Last Updated</p>
-                <p className="text-[13px] text-gray-800 font-medium leading-tight">{new Date().toLocaleTimeString()} • Today</p>
+                <p className="text-[13px] text-gray-800 font-medium leading-tight">{location?.timestamp ? new Date(location.timestamp).toLocaleTimeString() : 'Waiting for GPS...'} • Today</p>
               </div>
             </div>
           </div>
