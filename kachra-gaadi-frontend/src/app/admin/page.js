@@ -10,6 +10,7 @@ export default function AdminDashboard() {
   const [vehicles, setVehicles] = useState({});
   const [isConnected, setIsConnected] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, warnings: 0 });
+  const [checkpointStats, setCheckpointStats] = useState({});
 
   // Initial Fetch of all active vehicles
   useEffect(() => {
@@ -62,6 +63,30 @@ export default function AdminDashboard() {
     const warnings = Object.values(vehicles).filter(v => v.speed > 60).length; // speeding
     setStats({ total: Object.keys(vehicles).length, active, warnings });
   }, [vehicles]);
+
+  // Fetch checkpoint stats for all tracked vehicles
+  useEffect(() => {
+    const fetchStats = async () => {
+      const newStats = {};
+      for (const v of Object.values(vehicles)) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/vehicles/${v.vehicle_id}/stops/today`);
+          const json = await res.json();
+          if (json.success) {
+            newStats[v.vehicle_id] = json.data;
+          }
+        } catch (err) {
+          console.error("Failed to fetch checkpoint stats", err);
+        }
+      }
+      setCheckpointStats(prev => ({ ...prev, ...newStats }));
+    };
+
+    const interval = setInterval(fetchStats, 30000); // Update every 30s
+    if (Object.keys(vehicles).length > 0) fetchStats();
+
+    return () => clearInterval(interval);
+  }, [Object.keys(vehicles).join(',')]);
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
@@ -200,6 +225,13 @@ export default function AdminDashboard() {
                           {new Date(v.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
                       </div>
+                      {checkpointStats[v.vehicle_id] && checkpointStats[v.vehicle_id].total > 0 && (
+                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100 text-[11px] font-medium text-gray-500">
+                          <span>Checkpoints: {checkpointStats[v.vehicle_id].total}</span>
+                          <span className="text-emerald-600 font-bold">✓ {checkpointStats[v.vehicle_id].covered}</span>
+                          <span className="text-amber-600 font-bold">⏳ {checkpointStats[v.vehicle_id].remaining}</span>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

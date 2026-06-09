@@ -13,6 +13,7 @@ export default function ManagementDashboard() {
   const [cities, setCities] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [routes, setRoutes] = useState([]);
+  const [weeklyData, setWeeklyData] = useState({});
 
   // Forms State
   const [cityForm, setCityForm] = useState({ name: "", code: "", state: "" });
@@ -245,6 +246,11 @@ export default function ManagementDashboard() {
                 label="4. Assign Vehicles" 
                 icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>}
               />
+              <TabButton 
+                id="analytics" 
+                label="5. Analytics" 
+                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>}
+              />
             </div>
 
             {/* Tab Content */}
@@ -469,6 +475,70 @@ export default function ManagementDashboard() {
                       </div>
                     </form>
                   </div>
+                </div>
+              )}
+
+              {/* --- TAB 5: ANALYTICS --- */}
+              {activeTab === "analytics" && (
+                <div className="max-w-4xl">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Weekly Checkpoint Analytics</h3>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold text-gray-600 mb-2">Select Vehicle to view History</label>
+                    <select className="w-full max-w-md border border-gray-300 rounded-xl p-3 bg-white text-gray-900 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none"
+                      onChange={async (e) => {
+                        const code = e.target.value;
+                        if (!code) {
+                          setWeeklyData({});
+                          return;
+                        }
+                        try {
+                          const res = await fetch(`${BACKEND_URL}/api/vehicles/${code}/stops/weekly`);
+                          const json = await res.json();
+                          if (json.success) {
+                            const grouped = json.data.reduce((acc, curr) => {
+                              const date = curr.visit_date;
+                              if (!acc[date]) acc[date] = [];
+                              acc[date].push(curr.stops.name);
+                              return acc;
+                            }, {});
+                            setWeeklyData(grouped);
+                          }
+                        } catch(err) { console.error(err) }
+                      }}
+                    >
+                      <option value="">-- Select a vehicle --</option>
+                      {vehicles.map(v => (
+                        <option key={v.id} value={v.vehicle_code}>{v.vehicle_code} - {v.driver_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {Object.keys(weeklyData).length > 0 ? (
+                    <div className="space-y-4">
+                      {Object.entries(weeklyData).map(([date, stops]) => (
+                        <div key={date} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                          <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-50">
+                            <h4 className="font-bold text-emerald-700 text-lg">{new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h4>
+                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-bold rounded-full text-sm">{stops.length} Checkpoints Covered</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {stops.map((s, i) => (
+                              <span key={i} className="px-3 py-1.5 bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 flex items-center shadow-sm">
+                                <svg className="w-4 h-4 text-emerald-500 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-gray-400 h-[300px]">
+                      <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                      <p className="text-lg font-medium">Select a vehicle to view its historical completion records.</p>
+                    </div>
+                  )}
                 </div>
               )}
 

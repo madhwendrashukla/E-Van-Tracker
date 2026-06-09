@@ -5,6 +5,21 @@ const cors = require('cors');
 const supabase = require('./supabaseClient');
 require('dotenv').config();
 
+// Simple in-memory cache for route stops
+const routeStopsCache = new Map();
+
+// Haversine formula
+function getDistanceInMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Radius of the earth in m
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -53,7 +68,7 @@ app.post('/api/location', async (req, res) => {
     // First find the UUID of the vehicle based on vehicle_code
     const { data: vehicleData, error: vehicleError } = await supabase
       .from('vehicles')
-      .select('id, city_id')
+      .select('id, city_id, route_id')
       .eq('vehicle_code', vehicle_id)
       .single();
 
@@ -82,6 +97,55 @@ app.post('/api/location', async (req, res) => {
       console.error('Error saving location:', insertError);
       return res.status(500).json({ success: false, message: 'Database error' });
     }
+
+    // --- CHECKPOINT (STOP) TRACKING LOGIC ---
+    if (vehicleData.route_id) {
+      // 1. Get stops for this route (from cache or DB)
+      let stops = routeStopsCache.get(vehicleData.route_id);
+      if (!stops) {
+        const { data: stopsData } = await supabase
+          .from('stops')
+          .select('id, lat, lng, name, stop_order')
+          .eq('route_id', vehicleData.route_id);
+        
+        if (stopsData) {
+          stops = stopsData;
+          routeStopsCache.set(vehicleData.route_id, stops);
+        }
+      }
+
+      // 2. Check distance to each stop
+      if (stops && stops.length > 0) {
+        const DETECTION_RADIUS_METERS = 50;
+        
+        // Find if any stop is within radius
+        const reachedStop = stops.find(stop => {
+          const distance = getDistanceInMeters(lat, lng, stop.lat, stop.lng);
+          return distance <= DETECTION_RADIUS_METERS;
+        });
+
+        if (reachedStop) {
+          // 3. Try to log the visit (Database unique constraint prevents duplicates for today)
+          const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+          
+          // Fire and forget, don't wait for it
+          supabase
+            .from('stop_visits')
+            .insert([{
+              vehicle_id: vehicleData.id,
+              route_id: vehicleData.route_id,
+              stop_id: reachedStop.id,
+              visit_date: today
+            }])
+            .then(({ error }) => {
+              if (error && error.code !== '23505') { // Ignore unique violation errors
+                console.error('Error logging stop visit:', error);
+              }
+            });
+        }
+      }
+    }
+    // --- END CHECKPOINT LOGIC ---
 
     // Broadcast to Socket.io
     const locationData = { vehicle_id, city_id, lat, lng, speed, timestamp: timestamp || new Date().toISOString(), source };
@@ -369,6 +433,93 @@ app.get('/api/vehicles/:vehicleCode/route', async (req, res) => {
 // Basic health check endpoint
 app.get('/', (req, res) => {
   res.send('E-Van Tracker Tracking API is running');
+});
+
+// --- CHECKPOINT ANALYTICS ENDPOINTS ---
+
+// Get today's checkpoint stats for a vehicle
+app.get('/api/vehicles/:vehicleCode/stops/today', async (req, res) => {
+  try {
+    const { vehicleCode } = req.params;
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Get vehicle and route
+    const { data: vehicle, error: vError } = await supabase
+      .from('vehicles')
+      .select('id, route_id')
+      .eq('vehicle_code', vehicleCode)
+      .single();
+
+    if (vError || !vehicle || !vehicle.route_id) {
+      return res.json({ success: true, data: { total: 0, covered: 0, remaining: 0 } });
+    }
+
+    // 2. Get total stops on this route
+    const { count: totalStops, error: stopsError } = await supabase
+      .from('stops')
+      .select('id', { count: 'exact', head: true })
+      .eq('route_id', vehicle.route_id);
+
+    if (stopsError) throw stopsError;
+
+    // 3. Get covered stops for today
+    const { count: coveredStops, error: visitsError } = await supabase
+      .from('stop_visits')
+      .select('id', { count: 'exact', head: true })
+      .eq('vehicle_id', vehicle.id)
+      .eq('visit_date', today);
+
+    if (visitsError) throw visitsError;
+
+    const remaining = Math.max(0, (totalStops || 0) - (coveredStops || 0));
+
+    res.json({
+      success: true,
+      data: {
+        total: totalStops || 0,
+        covered: coveredStops || 0,
+        remaining: remaining
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching today stops:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get weekly checkpoint stats for a vehicle
+app.get('/api/vehicles/:vehicleCode/stops/weekly', async (req, res) => {
+  try {
+    const { vehicleCode } = req.params;
+
+    // 1. Get vehicle
+    const { data: vehicle, error: vError } = await supabase
+      .from('vehicles')
+      .select('id')
+      .eq('vehicle_code', vehicleCode)
+      .single();
+
+    if (vError || !vehicle) return res.status(404).json({ success: false, message: 'Vehicle not found' });
+
+    // 7 days ago
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // 2. Get visits in the last 7 days
+    const { data, error } = await supabase
+      .from('stop_visits')
+      .select('visit_date, stop_id, stops(name)')
+      .eq('vehicle_id', vehicle.id)
+      .gte('visit_date', sevenDaysAgo)
+      .order('visit_date', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching weekly stops:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 const PORT = process.env.PORT || 3001;
