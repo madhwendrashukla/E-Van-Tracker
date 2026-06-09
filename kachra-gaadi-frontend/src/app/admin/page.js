@@ -226,11 +226,39 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                       {checkpointStats[v.vehicle_id] && checkpointStats[v.vehicle_id].total > 0 && (
-                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100 text-[11px] font-medium text-gray-500">
-                          <span>Checkpoints: {checkpointStats[v.vehicle_id].total}</span>
-                          <span className="text-emerald-600 font-bold">✓ {checkpointStats[v.vehicle_id].covered}</span>
-                          <span className="text-amber-600 font-bold">⏳ {checkpointStats[v.vehicle_id].remaining}</span>
-                        </div>
+                        <>
+                          <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100 text-[11px] font-medium text-gray-500">
+                            <span>Checkpoints: {checkpointStats[v.vehicle_id].total}</span>
+                            <span className="text-emerald-600 font-bold">✓ {checkpointStats[v.vehicle_id].covered}</span>
+                            <span className="text-amber-600 font-bold">⏳ {checkpointStats[v.vehicle_id].remaining}</span>
+                          </div>
+                          {checkpointStats[v.vehicle_id].next_stop && (
+                            <div className="mt-2 p-2 bg-slate-50 rounded-xl border border-slate-100">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Next Stop</span>
+                                <span className="text-xs font-semibold text-indigo-600 truncate max-w-[120px]">{checkpointStats[v.vehicle_id].next_stop}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[11px] font-medium text-slate-500 flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                  {checkpointStats[v.vehicle_id].distance_to_next >= 1000 
+                                    ? `${(checkpointStats[v.vehicle_id].distance_to_next / 1000).toFixed(1)} km` 
+                                    : `${checkpointStats[v.vehicle_id].distance_to_next} m`}
+                                </span>
+                                <span className="text-[11px] font-medium text-slate-500 flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                  ETA: {checkpointStats[v.vehicle_id].eta_minutes ? `${checkpointStats[v.vehicle_id].eta_minutes} min` : '--'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {checkpointStats[v.vehicle_id].average_speed > 0 && (
+                            <div className="flex justify-between items-center mt-2 text-[10px] font-medium text-slate-400">
+                              <span>Today's Avg Speed</span>
+                              <span>{checkpointStats[v.vehicle_id].average_speed} km/h</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   ))

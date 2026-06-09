@@ -437,7 +437,7 @@ app.get('/', (req, res) => {
 
 // --- CHECKPOINT ANALYTICS ENDPOINTS ---
 
-// Get today's checkpoint stats for a vehicle
+// Get today's checkpoint stats and ETA for a vehicle
 app.get('/api/vehicles/:vehicleCode/stops/today', async (req, res) => {
   try {
     const { vehicleCode } = req.params;
@@ -451,34 +451,83 @@ app.get('/api/vehicles/:vehicleCode/stops/today', async (req, res) => {
       .single();
 
     if (vError || !vehicle || !vehicle.route_id) {
-      return res.json({ success: true, data: { total: 0, covered: 0, remaining: 0 } });
+      return res.json({ success: true, data: { total: 0, covered: 0, remaining: 0, next_stop: null, distance_to_next: null, eta_minutes: null, average_speed: 0 } });
     }
 
-    // 2. Get total stops on this route
-    const { count: totalStops, error: stopsError } = await supabase
+    // 2. Get all stops on this route ordered by stop_order
+    const { data: stops, error: stopsError } = await supabase
       .from('stops')
-      .select('id', { count: 'exact', head: true })
-      .eq('route_id', vehicle.route_id);
+      .select('id, name, lat, lng, stop_order')
+      .eq('route_id', vehicle.route_id)
+      .order('stop_order', { ascending: true });
 
     if (stopsError) throw stopsError;
 
     // 3. Get covered stops for today
-    const { count: coveredStops, error: visitsError } = await supabase
+    const { data: visits, error: visitsError } = await supabase
       .from('stop_visits')
-      .select('id', { count: 'exact', head: true })
+      .select('stop_id')
       .eq('vehicle_id', vehicle.id)
       .eq('visit_date', today);
 
     if (visitsError) throw visitsError;
 
-    const remaining = Math.max(0, (totalStops || 0) - (coveredStops || 0));
+    // 4. Get location logs for today to calculate speed and get current position
+    const { data: logs, error: logsError } = await supabase
+      .from('location_logs')
+      .select('lat, lng, speed')
+      .eq('vehicle_id', vehicle.id)
+      .gte('timestamp', `${today}T00:00:00.000Z`)
+      .order('timestamp', { ascending: false });
+
+    if (logsError) throw logsError;
+
+    const visitedStopIds = new Set((visits || []).map(v => v.stop_id));
+    const totalStops = stops ? stops.length : 0;
+    const coveredStops = visitedStopIds.size;
+    const remaining = Math.max(0, totalStops - coveredStops);
+
+    // Find next unvisited stop
+    let nextStop = null;
+    if (stops) {
+      nextStop = stops.find(s => !visitedStopIds.has(s.id)) || null;
+    }
+
+    let distanceToNext = null;
+    let etaMinutes = null;
+    let avgSpeed = 0;
+
+    if (logs && logs.length > 0) {
+      const validLogs = logs.filter(l => l.speed !== null && l.speed !== undefined);
+      if (validLogs.length > 0) {
+        avgSpeed = validLogs.reduce((sum, l) => sum + parseFloat(l.speed), 0) / validLogs.length;
+      }
+
+      const latestLog = logs[0];
+      if (nextStop && latestLog.lat && latestLog.lng) {
+        distanceToNext = getDistanceInMeters(latestLog.lat, latestLog.lng, nextStop.lat, nextStop.lng);
+        
+        // Calculate ETA
+        // Use average speed if > 5 km/h, else use latest speed. If completely stopped, assume 15 km/h for ETA purposes
+        const speedToUse = avgSpeed > 5 ? avgSpeed : (parseFloat(latestLog.speed) > 0 ? parseFloat(latestLog.speed) : 15);
+        // speed in m/min = speed_kmh * 1000 / 60
+        const speedMetersPerMin = (speedToUse * 1000) / 60;
+        if (speedMetersPerMin > 0) {
+          etaMinutes = Math.round(distanceToNext / speedMetersPerMin);
+        }
+      }
+    }
 
     res.json({
       success: true,
       data: {
-        total: totalStops || 0,
-        covered: coveredStops || 0,
-        remaining: remaining
+        total: totalStops,
+        covered: coveredStops,
+        remaining: remaining,
+        next_stop: nextStop ? nextStop.name : null,
+        distance_to_next: distanceToNext ? Math.round(distanceToNext) : null, // in meters
+        eta_minutes: etaMinutes,
+        average_speed: avgSpeed ? parseFloat(avgSpeed.toFixed(1)) : 0
       }
     });
 
