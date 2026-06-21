@@ -2,8 +2,11 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const supabase = require('./supabaseClient');
-require('dotenv').config();
+const cookieParser = require('cookie-parser');
+const env = require('./config/env');
+const supabase = require('./config/supabase');
+const authRoutes = require('./routes/auth.routes');
+const { authenticateToken, authorizeRole } = require('./middleware/auth');
 
 // Simple in-memory cache for route stops
 const routeStopsCache = new Map();
@@ -21,8 +24,12 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
 }
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: true, credentials: true })); // Allow credentials for cookies
 app.use(express.json());
+app.use(cookieParser());
+
+// Auth routes
+app.use('/api/auth', authRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -197,8 +204,8 @@ app.get('/api/vehicles/active', async (req, res) => {
   }
 });
 
-// Get all vehicles
-app.get('/api/vehicles', async (req, res) => {
+// Get all vehicles (Admin and Supervisor)
+app.get('/api/vehicles', authenticateToken, authorizeRole('admin', 'supervisor'), async (req, res) => {
   try {
     const { data, error } = await supabase.from('vehicles').select('*');
     if (error) throw error;
@@ -209,8 +216,8 @@ app.get('/api/vehicles', async (req, res) => {
   }
 });
 
-// Create a new vehicle
-app.post('/api/vehicles', async (req, res) => {
+// Create a new vehicle (Admin only)
+app.post('/api/vehicles', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const { vehicle_code, driver_name, city_id, route_id, battery_level } = req.body;
     
@@ -571,7 +578,7 @@ app.get('/api/vehicles/:vehicleCode/stops/weekly', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
