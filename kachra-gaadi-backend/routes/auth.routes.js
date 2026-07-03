@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const supabase = require('../config/supabase');
 const env = require('../config/env');
 
@@ -15,6 +16,13 @@ const cookieOptions = {
   sameSite: 'strict',
 };
 
+// Auth Rate Limiter
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs for auth routes
+  message: { success: false, message: 'Too many authentication attempts, please try again later.' }
+});
+
 // Generate Tokens
 const generateTokens = (user) => {
   const payload = { id: user.id, email: user.email, role: user.role };
@@ -24,7 +32,7 @@ const generateTokens = (user) => {
 };
 
 // POST /api/auth/register (Utility for testing, maybe remove in production or protect with Admin role)
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   try {
     const { email, password, role } = req.body;
     
@@ -62,7 +70,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -132,11 +140,14 @@ router.post('/refresh', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Token revoked or invalid' });
     }
 
-    // Generate new access token
-    const payload = { id: user.id, email: user.email, role: user.role };
-    const newAccessToken = jwt.sign(payload, env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+    // Generate new tokens (Refresh Token Rotation)
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user);
+
+    // Save new refresh token to DB (invalidates the old one)
+    await supabase.from('users').update({ refresh_token: newRefreshToken }).eq('id', user.id);
 
     res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+    res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
     res.json({ success: true, message: 'Token refreshed' });
   } catch (error) {
     console.error('Refresh error:', error);

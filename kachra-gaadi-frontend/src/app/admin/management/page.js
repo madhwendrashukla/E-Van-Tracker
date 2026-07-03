@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import api from "../../../utils/axios";
 import MapView from "../../../components/MapView";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -24,13 +25,13 @@ export default function ManagementDashboard() {
   const fetchData = async () => {
     try {
       const [citiesRes, vehiclesRes, routesRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/cities`),
-        fetch(`${BACKEND_URL}/api/vehicles`),
-        fetch(`${BACKEND_URL}/api/routes`)
+        api.get('/api/cities'),
+        api.get('/api/vehicles'),
+        api.get('/api/routes')
       ]);
-      const citiesJson = await citiesRes.json();
-      const vehiclesJson = await vehiclesRes.json();
-      const routesJson = await routesRes.json();
+      const citiesJson = citiesRes.data;
+      const vehiclesJson = vehiclesRes.data;
+      const routesJson = routesRes.data;
 
       if (citiesJson.success) setCities(citiesJson.data);
       if (vehiclesJson.success) setVehicles(vehiclesJson.data);
@@ -54,12 +55,8 @@ export default function ManagementDashboard() {
   const handleAddCity = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${BACKEND_URL}/api/cities`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cityForm)
-      });
-      const json = await res.json();
+      const res = await api.post('/api/cities', cityForm);
+      const json = res.data;
       if (json.success) {
         showMessage("City added successfully!");
         setCityForm({ name: "", code: "", state: "" });
@@ -75,12 +72,8 @@ export default function ManagementDashboard() {
   const handleAddVehicle = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${BACKEND_URL}/api/vehicles`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(vehicleForm)
-      });
-      const json = await res.json();
+      const res = await api.post('/api/vehicles', vehicleForm);
+      const json = res.data;
       if (json.success) {
         showMessage("Vehicle added successfully!");
         setVehicleForm({ vehicle_code: "", driver_name: "", city_id: "", route_id: "" });
@@ -124,12 +117,8 @@ export default function ManagementDashboard() {
     }
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/routes/with-stops`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(routeForm)
-      });
-      const json = await res.json();
+      const res = await api.post('/api/routes/with-stops', routeForm);
+      const json = res.data;
       if (json.success) {
         showMessage("Route and stops saved successfully!");
         setRouteForm({ name: "", city_id: "", stops: [] });
@@ -145,12 +134,8 @@ export default function ManagementDashboard() {
   const handleAssignRoute = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${BACKEND_URL}/api/vehicles/${assignmentForm.vehicle_id}/route`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ route_id: assignmentForm.route_id })
-      });
-      const json = await res.json();
+      const res = await api.put(`/api/vehicles/${assignmentForm.vehicle_id}/route`, { route_id: assignmentForm.route_id });
+      const json = res.data;
       if (json.success) {
         showMessage("Route assigned to vehicle successfully!");
         setAssignmentForm({ city_id: "", vehicle_id: "", route_id: "" });
@@ -493,8 +478,8 @@ export default function ManagementDashboard() {
                           return;
                         }
                         try {
-                          const res = await fetch(`${BACKEND_URL}/api/vehicles/${code}/stops/weekly`);
-                          const json = await res.json();
+                          const res = await api.get(`/api/vehicles/${code}/stops/weekly`);
+                          const json = res.data;
                           if (json.success) {
                             const grouped = json.data.reduce((acc, curr) => {
                               const date = curr.visit_date;

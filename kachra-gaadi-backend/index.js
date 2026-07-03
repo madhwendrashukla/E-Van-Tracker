@@ -3,6 +3,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 const env = require('./config/env');
 const supabase = require('./config/supabase');
 const authRoutes = require('./routes/auth.routes');
@@ -24,9 +27,36 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
 }
 
 const app = express();
-app.use(cors({ origin: true, credentials: true })); // Allow credentials for cookies
+
+// Security Headers
+app.use(helmet());
+
+// CORS configuration - In production, this should be restricted to actual domains
+app.use(cors({ 
+  origin: env.FRONTEND_URL || 'http://localhost:3000', 
+  credentials: true 
+}));
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Increase max slightly for general API endpoints, specific limit on auth in auth.routes
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
 app.use(express.json());
 app.use(cookieParser());
+
+// API Key Middleware for devices/driver apps
+const requireApiKey = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey || apiKey !== (env.DRIVER_API_KEY || 'default-secret-driver-key')) {
+    return res.status(403).json({ success: false, message: 'Invalid API Key' });
+  }
+  next();
+};
 
 // Auth routes
 app.use('/api/auth', authRoutes);
@@ -39,9 +69,23 @@ const io = new Server(server, {
   }
 });
 
-// Socket.io connection handling
+// Socket.io connection handling and Auth Middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error('Authentication error: No token provided'));
+  }
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+    socket.user = decoded;
+    next();
+  } catch (err) {
+    return next(new Error('Authentication error: Invalid token'));
+  }
+});
+
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  console.log('Client connected:', socket.id, 'User:', socket.user?.email);
 
   // Client joins specific rooms (e.g., admin-room or vehicle-LKO-001)
   socket.on('join_room', (room) => {
@@ -55,7 +99,7 @@ io.on('connection', (socket) => {
 });
 
 // Location POST endpoint (from Flutter app)
-app.post('/api/location', async (req, res) => {
+app.post('/api/location', requireApiKey, async (req, res) => {
   try {
     const { vehicle_id, city_id, lat, lng, speed, timestamp, source } = req.body;
     
@@ -251,7 +295,7 @@ app.put('/api/vehicles/:id/route', async (req, res) => {
 });
 
 // Get historical route for a specific vehicle (last 24 hours)
-app.get('/api/location/history/:vehicleCode', async (req, res) => {
+app.get('/api/location/history/:vehicleCode', authenticateToken, async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     
@@ -283,7 +327,7 @@ app.get('/api/location/history/:vehicleCode', async (req, res) => {
 });
 
 // Get all cities
-app.get('/api/cities', async (req, res) => {
+app.get('/api/cities', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase.from('cities').select('*');
     if (error) throw error;
@@ -295,7 +339,7 @@ app.get('/api/cities', async (req, res) => {
 });
 
 // Create a new city
-app.post('/api/cities', async (req, res) => {
+app.post('/api/cities', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const { name, code, state } = req.body;
     const { data, error } = await supabase.from('cities').insert([{ name, code, state }]).select();
@@ -308,7 +352,7 @@ app.post('/api/cities', async (req, res) => {
 });
 
 // Get all routes
-app.get('/api/routes', async (req, res) => {
+app.get('/api/routes', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase.from('routes').select('*, stops(*)');
     if (error) throw error;
@@ -320,7 +364,7 @@ app.get('/api/routes', async (req, res) => {
 });
 
 // Create a route
-app.post('/api/routes', async (req, res) => {
+app.post('/api/routes', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const { city_id, name } = req.body;
     const { data, error } = await supabase.from('routes').insert([{ city_id, name }]).select();
@@ -333,7 +377,7 @@ app.post('/api/routes', async (req, res) => {
 });
 
 // Create route and its stops simultaneously (single transaction equivalent)
-app.post('/api/routes/with-stops', async (req, res) => {
+app.post('/api/routes/with-stops', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const { city_id, name, stops } = req.body;
     
@@ -375,7 +419,7 @@ app.post('/api/routes/with-stops', async (req, res) => {
 });
 
 // Add or update stops to a route
-app.post('/api/routes/:id/stops', async (req, res) => {
+app.post('/api/routes/:id/stops', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const { stops } = req.body; // array of stops
@@ -404,7 +448,7 @@ app.post('/api/routes/:id/stops', async (req, res) => {
 });
 
 // Get vehicle's assigned route and stops
-app.get('/api/vehicles/:vehicleCode/route', async (req, res) => {
+app.get('/api/vehicles/:vehicleCode/route', authenticateToken, async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     
@@ -445,7 +489,7 @@ app.get('/', (req, res) => {
 // --- CHECKPOINT ANALYTICS ENDPOINTS ---
 
 // Get today's checkpoint stats and ETA for a vehicle
-app.get('/api/vehicles/:vehicleCode/stops/today', async (req, res) => {
+app.get('/api/vehicles/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     const today = new Date().toISOString().split('T')[0];
@@ -545,7 +589,7 @@ app.get('/api/vehicles/:vehicleCode/stops/today', async (req, res) => {
 });
 
 // Get weekly checkpoint stats for a vehicle
-app.get('/api/vehicles/:vehicleCode/stops/weekly', async (req, res) => {
+app.get('/api/vehicles/:vehicleCode/stops/weekly', authenticateToken, async (req, res) => {
   try {
     const { vehicleCode } = req.params;
 

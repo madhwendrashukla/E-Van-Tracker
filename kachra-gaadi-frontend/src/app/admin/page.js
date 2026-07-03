@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { io } from "socket.io-client";
+import api from "../../utils/axios";
 import MapView from "../../components/MapView";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -16,8 +17,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/vehicles/active`);
-        const json = await res.json();
+        const res = await api.get('/api/vehicles/active');
+        const json = res.data;
         if (json.success) {
           const vMap = {};
           json.data.forEach(v => {
@@ -70,8 +71,8 @@ export default function AdminDashboard() {
       const newStats = {};
       for (const v of Object.values(vehicles)) {
         try {
-          const res = await fetch(`${BACKEND_URL}/api/vehicles/${v.vehicle_id}/stops/today`);
-          const json = await res.json();
+          const res = await api.get(`/api/vehicles/${v.vehicle_id}/stops/today`);
+          const json = res.data;
           if (json.success) {
             newStats[v.vehicle_id] = json.data;
           }

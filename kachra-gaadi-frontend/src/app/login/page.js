@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import api from '../../utils/axios';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -16,14 +17,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include', // Extremely important for HttpOnly cookies
-      });
-
-      const data = await res.json();
+      const res = await api.post('/api/auth/login', { email, password });
+      const data = res.data;
 
       if (data.success) {
         if (data.user.role === 'admin') {
