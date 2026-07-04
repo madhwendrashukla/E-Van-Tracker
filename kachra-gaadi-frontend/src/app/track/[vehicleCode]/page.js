@@ -93,6 +93,24 @@ export default function TrackVehicle({ params }) {
         console.error("Error fetching route", err);
         setRouteData(false);
       });
+
+    // Fetch last known location immediately
+    api.get(`/api/location/history/${vehicleCode}`)
+      .then(res => {
+        const json = res.data;
+        if (json.success && json.data && json.data.length > 0) {
+          const latest = json.data[json.data.length - 1];
+          setLocation(prev => prev || {
+            vehicle_id: vehicleCode.toUpperCase(),
+            lat: latest.lat,
+            lng: latest.lng,
+            speed: latest.speed,
+            timestamp: latest.timestamp,
+            source: 'history'
+          });
+        }
+      })
+      .catch(err => console.error("Error fetching location history", err));
   }, [vehicleCode]);
 
   const [targetStop, setTargetStop] = useState(null);

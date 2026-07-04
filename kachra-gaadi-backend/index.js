@@ -201,8 +201,8 @@ async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp,
     io.to('admin-room').emit('location_update', locationData);
     io.to(`admin-room-${vehicleData.city_id}`).emit('location_update', locationData);
     
-    // Broadcast to vehicle specific room
-    io.to(`vehicle-${vehicleData.id}`).emit('location_update', locationData);
+    // Broadcast to vehicle specific room (e.g., vehicle-LKO-001)
+    io.to(`vehicle-${vehicleData.vehicle_code.toUpperCase()}`).emit('location_update', locationData);
 
     return true;
   } catch (error) {
