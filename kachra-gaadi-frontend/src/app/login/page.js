@@ -30,7 +30,7 @@ export default function LoginPage() {
         setError(data.message || 'Login failed');
       }
     } catch (err) {
-      setError('Network error. Please try again later.');
+      setError(err.response?.data?.message || 'Network error. Please try again later.');
     } finally {
       setLoading(false);
     }
