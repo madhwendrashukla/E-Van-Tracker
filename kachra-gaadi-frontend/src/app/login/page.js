@@ -21,6 +21,14 @@ export default function LoginPage() {
       const data = res.data;
 
       if (data.success) {
+        // Set local cookies so Next.js middleware knows the user is authenticated
+        if (data.accessToken) {
+          document.cookie = `accessToken=${data.accessToken}; path=/; max-age=900; SameSite=Lax; Secure`;
+        }
+        if (data.refreshToken) {
+          document.cookie = `refreshToken=${data.refreshToken}; path=/; max-age=604800; SameSite=Lax; Secure`;
+        }
+        
         if (data.user.role === 'admin') {
           router.push('/admin');
         } else {

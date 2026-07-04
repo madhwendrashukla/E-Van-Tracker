@@ -14,7 +14,16 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        await axios.post(`${api.defaults.baseURL}/api/auth/refresh`, {}, { withCredentials: true });
+        const refreshRes = await axios.post(`${api.defaults.baseURL}/api/auth/refresh`, {}, { withCredentials: true });
+        
+        // Update local cookies
+        if (refreshRes.data.accessToken) {
+          document.cookie = `accessToken=${refreshRes.data.accessToken}; path=/; max-age=900; SameSite=Lax; Secure`;
+        }
+        if (refreshRes.data.refreshToken) {
+          document.cookie = `refreshToken=${refreshRes.data.refreshToken}; path=/; max-age=604800; SameSite=Lax; Secure`;
+        }
+        
         return api(originalRequest);
       } catch (refreshError) {
         if (typeof window !== 'undefined') {

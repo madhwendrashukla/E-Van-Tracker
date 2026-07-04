@@ -12,8 +12,8 @@ const REFRESH_TOKEN_EXPIRY = '7d';
 
 const cookieOptions = {
   httpOnly: true,
-  secure: env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  secure: true, // Always true for cross-origin
+  sameSite: 'none', // Needed for cross-origin cookies
 };
 
 // Auth Rate Limiter
@@ -107,7 +107,9 @@ router.post('/login', authLimiter, async (req, res) => {
 
     res.json({
       success: true,
-      user: { id: user.id, email: user.email, role: user.role }
+      user: { id: user.id, email: user.email, role: user.role },
+      accessToken,
+      refreshToken
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -148,7 +150,7 @@ router.post('/refresh', async (req, res) => {
 
     res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
     res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-    res.json({ success: true, message: 'Token refreshed' });
+    res.json({ success: true, message: 'Token refreshed', accessToken: newAccessToken, refreshToken: newRefreshToken });
   } catch (error) {
     console.error('Refresh error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
