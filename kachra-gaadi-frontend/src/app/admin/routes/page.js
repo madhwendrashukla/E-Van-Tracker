@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import MapView from "../../../components/MapView";
+import api from "../../../utils/axios";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
@@ -14,9 +15,9 @@ export default function RouteBuilder() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/cities`)
-      .then(res => res.json())
-      .then(json => {
+    api.get(`/api/cities`)
+      .then(res => {
+        const json = res.data;
         if (json.success) setCities(json.data);
       })
       .catch(err => console.error("Failed to load cities", err));
@@ -57,23 +58,15 @@ export default function RouteBuilder() {
 
     try {
       // 1. Create Route
-      const routeRes = await fetch(`${BACKEND_URL}/api/routes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ city_id: selectedCity, name: routeName })
-      });
-      const routeJson = await routeRes.json();
+      const routeRes = await api.post(`/api/routes`, { city_id: selectedCity, name: routeName });
+      const routeJson = routeRes.data;
 
       if (routeJson.success) {
         const routeId = routeJson.data.id;
         
         // 2. Save Stops
-        const stopsRes = await fetch(`${BACKEND_URL}/api/routes/${routeId}/stops`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stops })
-        });
-        const stopsJson = await stopsRes.json();
+        const stopsRes = await api.post(`/api/routes/${routeId}/stops`, { stops });
+        const stopsJson = stopsRes.data;
 
         if (stopsJson.success) {
           setMessage("Route and stops saved successfully!");

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Script from 'next/script';
+import api from '../utils/axios';
 
 // Haversine formula for distance between coordinates in meters
 function getDistanceInMeters(lat1, lon1, lat2, lon2) {
@@ -300,8 +301,8 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`${backendUrl}/api/location/history/${vehicleLocation.vehicle_id}`);
-        const json = await res.json();
+        const res = await api.get(`/api/location/history/${vehicleLocation.vehicle_id}`);
+        const json = res.data;
         if (json.success && json.data && json.data.length > 0) {
           const rawPath = json.data.map(p => ({ lat: p.lat, lng: p.lng, speed: p.speed, timestamp: p.timestamp }));
           

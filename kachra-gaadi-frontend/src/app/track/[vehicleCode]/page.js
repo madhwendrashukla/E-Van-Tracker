@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import MapView from "../../../components/MapView";
 import { use } from "react";
+import api from "../../../utils/axios";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
@@ -69,9 +70,9 @@ export default function TrackVehicle({ params }) {
     if (!vehicleCode) return;
     
     // Fetch specific vehicle details from the list
-    fetch(`${BACKEND_URL}/api/vehicles`)
-      .then(res => res.json())
-      .then(json => {
+    api.get(`/api/vehicles`)
+      .then(res => {
+        const json = res.data;
         if (json.success) {
           const v = json.data.find(veh => veh.vehicle_code.toLowerCase() === vehicleCode.toLowerCase());
           if (v) setVehicleDetails(v);
@@ -80,9 +81,9 @@ export default function TrackVehicle({ params }) {
       .catch(err => console.error("Error fetching vehicles", err));
 
     // Fetch route and stops
-    fetch(`${BACKEND_URL}/api/vehicles/${vehicleCode}/route`)
-      .then(res => res.json())
-      .then(json => {
+    api.get(`/api/vehicles/${vehicleCode}/route`)
+      .then(res => {
+        const json = res.data;
         if (json.success) {
           setRouteData(json.data);
         } else {
