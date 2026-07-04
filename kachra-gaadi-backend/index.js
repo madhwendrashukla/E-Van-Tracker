@@ -45,6 +45,9 @@ app.use(cors({
   credentials: true 
 }));
 
+// Trust the reverse proxy (e.g. Railway, Nginx) so rate limiter gets the correct IP
+app.set('trust proxy', 1);
+
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
