@@ -29,21 +29,33 @@ function getBearing(lat1, lon1, lat2, lon2) {
   return (brng + 360) % 360;
 }
 
-// Custom truck emoji marker generator (with rotation and status opacity)
+// Custom green van SVG marker generator
 const createVehicleMarkerHtml = (vid, bearing, isOnline) => {
   const opacity = isOnline ? 1.0 : 0.5;
-  const rotation = (bearing + 90) % 360; // 🚛 faces left by default, offset by 90 degrees
+  const rotation = bearing % 360; // Top-down SVG faces North (0 deg) naturally
   return `
     <div id="vehicle-marker-${vid}" style="
-      font-size: 36px; 
-      line-height: 36px; 
-      filter: drop-shadow(0px 3px 2px rgba(0,0,0,0.4)); 
+      width: 44px;
+      height: 44px;
+      filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); 
       transform: rotate(${rotation}deg); 
       transition: transform 0.6s ease-out;
       transform-origin: center;
       opacity: ${opacity};
     ">
-      🚛
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+        <!-- Cab -->
+        <rect x="25" y="10" width="50" height="30" rx="6" fill="#16a34a" />
+        <!-- Windshield -->
+        <rect x="30" y="14" width="40" height="12" rx="3" fill="#bfdbfe" />
+        <!-- Container/Back -->
+        <rect x="22" y="38" width="56" height="52" rx="4" fill="#22c55e" />
+        <!-- Top detail -->
+        <rect x="28" y="44" width="44" height="40" rx="2" fill="#15803d" />
+        <!-- Mirrors -->
+        <rect x="20" y="20" width="5" height="12" rx="2" fill="#374151" />
+        <rect x="75" y="20" width="5" height="12" rx="2" fill="#374151" />
+      </svg>
     </div>
   `;
 };
@@ -189,10 +201,10 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
 
         marker.setPosition(currentLat, currentLng);
 
-        // Update CSS rotation on marker container (offsetting by 90 deg for the left-facing truck emoji)
+        // Update CSS rotation on marker container
         const el = document.getElementById(`vehicle-marker-${vid}`);
         if (el) {
-          el.style.transform = `rotate(${(anim.bearing + 90) % 360}deg)`;
+          el.style.transform = `rotate(${anim.bearing % 360}deg)`;
         }
 
         // Keep current coordinates as start values for the next frame if completed
