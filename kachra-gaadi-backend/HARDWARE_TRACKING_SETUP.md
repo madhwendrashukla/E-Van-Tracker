@@ -36,3 +36,13 @@ When deploying the frontend (e.g., to Vercel) and connecting it to the Railway b
 - **Ultimate Fix (Custom Domain)**: To bypass Railway's broken default domains, we attached a Custom Domain (`backend.dbeos.in`) directly to the Railway service by configuring the required `CNAME` and `TXT` (verification) records via the domain registrar (Vercel DNS).
 - **SSL Certificate Delay Issue (`CERT_NOT_YET_VALID`)**: Even after the Custom Domain DNS successfully propagated, Railway's automatic Let's Encrypt SSL certificate was issued with a timestamp artificially set 5.5 hours in the future (due to a timezone generation bug). This caused strict browsers to silently block API requests (showing `Provisional headers are shown` / Network Error) because the certificate was not yet valid.
 - **Bypass**: To immediately fix the SSL block without waiting 5 hours, the user must visit the backend API URL directly in their browser and manually accept the security risk (e.g., clicking Advanced -> Proceed, or typing `thisisunsafe`). Once the browser trusts the domain, the frontend Vercel app can successfully send cross-origin POST requests to it.
+
+## 7. Troubleshooting & Configurations
+### Changing Tracker Update Frequency
+By default, some GT06 trackers only send data every 60 seconds (or more). To make the tracker update the live map more rapidly (e.g., every 10 seconds), send the following SMS command to the phone number of the SIM card inside the physical GPS tracker:
+
+- **Command:** `TIMER,10,10#`
+  - The first `10` sets the transmission interval (in seconds) while the vehicle engine/ignition is **ON**.
+  - The second `10` sets the transmission interval (in seconds) while the vehicle engine/ignition is **OFF**.
+
+*Note: You should receive an SMS reply back saying `OK` if the command was successful. If the tracker does not respond to `TIMER`, it might use a different firmware standard. Alternative commands include `upmove123456 10` or `freq,123456,10` (where `123456` is the default GT06 password).*
