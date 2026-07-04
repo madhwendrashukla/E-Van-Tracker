@@ -31,6 +31,8 @@ Initially, the hardware tracker emitted its 15-digit IMEI as the `vehicle_id` ov
 - This ensures the existing Web Dashboard and Flutter App seamlessly display hardware tracker movements without requiring any frontend code changes.
 
 ## 6. Railway DNS and Frontend Deployment Notes
-When deploying the frontend (e.g., to Vercel) and connecting it to the Railway backend, we encountered a `ERR_NAME_NOT_RESOLVED` network error on the frontend.
-- **Cause**: Railway sometimes fails to register the default `.up.railway.app` domain in the global DNS registry.
-- **Fix**: To fix this, delete the broken domain in the Railway dashboard (Settings -> Public Networking) and click "Generate Domain" again. Update the `NEXT_PUBLIC_BACKEND_URL` in your frontend's environment variables to the newly generated domain and redeploy.
+When deploying the frontend (e.g., to Vercel) and connecting it to the Railway backend, we encountered severe `ERR_NAME_NOT_RESOLVED` network errors on the frontend.
+- **Cause**: Railway's free tier currently suffers from a known issue where it often completely fails to register the default `.up.railway.app` domain in the global DNS registry, resulting in a dead URL.
+- **Ultimate Fix (Custom Domain)**: To bypass Railway's broken default domains, we attached a Custom Domain (`backend.dbeos.in`) directly to the Railway service by configuring the required `CNAME` and `TXT` (verification) records via the domain registrar (Vercel DNS).
+- **SSL Certificate Delay Issue (`CERT_NOT_YET_VALID`)**: Even after the Custom Domain DNS successfully propagated, Railway's automatic Let's Encrypt SSL certificate was issued with a timestamp artificially set 5.5 hours in the future (due to a timezone generation bug). This caused strict browsers to silently block API requests (showing `Provisional headers are shown` / Network Error) because the certificate was not yet valid.
+- **Bypass**: To immediately fix the SSL block without waiting 5 hours, the user must visit the backend API URL directly in their browser and manually accept the security risk (e.g., clicking Advanced -> Proceed, or typing `thisisunsafe`). Once the browser trusts the domain, the frontend Vercel app can successfully send cross-origin POST requests to it.
