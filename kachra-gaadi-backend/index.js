@@ -105,7 +105,7 @@ async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp,
     // First find the UUID of the vehicle based on vehicle_code OR imei
     const { data: vehicleData, error: vehicleError } = await supabase
       .from('vehicles')
-      .select('id, city_id, route_id')
+      .select('id, city_id, route_id, vehicle_code')
       .or(`vehicle_code.eq.${vehicle_id},imei.eq.${vehicle_id}`)
       .maybeSingle();
 
@@ -184,7 +184,7 @@ async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp,
     // --- END CHECKPOINT LOGIC ---
 
     // Broadcast to Socket.io
-    const locationData = { vehicle_id, city_id: vehicleData.city_id, lat, lng, speed, timestamp: timestamp || new Date().toISOString(), source: source || 'hardware' };
+    const locationData = { vehicle_id: vehicleData.vehicle_code, city_id: vehicleData.city_id, lat, lng, speed, timestamp: timestamp || new Date().toISOString(), source: source || 'hardware' };
     
     // Broadcast to admin room for this city or general admin room
     io.to('admin-room').emit('location_update', locationData);
