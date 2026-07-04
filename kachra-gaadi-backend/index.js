@@ -102,12 +102,12 @@ io.on('connection', (socket) => {
 // Function to handle location data from hardware trackers and app
 async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp, source }) {
   try {
-    // First find the UUID of the vehicle based on vehicle_code
+    // First find the UUID of the vehicle based on vehicle_code OR imei
     const { data: vehicleData, error: vehicleError } = await supabase
       .from('vehicles')
       .select('id, city_id, route_id')
-      .eq('vehicle_code', vehicle_id)
-      .single();
+      .or(`vehicle_code.eq.${vehicle_id},imei.eq.${vehicle_id}`)
+      .maybeSingle();
 
     if (vehicleError || !vehicleData) {
       console.error('Vehicle not found:', vehicleError);
