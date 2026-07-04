@@ -52,6 +52,10 @@ api.interceptors.response.use(
         
         return api(originalRequest);
       } catch (refreshError) {
+        if (typeof document !== 'undefined') {
+          document.cookie = 'accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          document.cookie = 'refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        }
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
