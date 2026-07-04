@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const env = require('./config/env');
 const supabase = require('./config/supabase');
 const authRoutes = require('./routes/auth.routes');
+const { startTcpServer } = require('./tcpServer');
 const { authenticateToken, authorizeRole } = require('./middleware/auth');
 
 // Simple in-memory cache for route stops
@@ -98,24 +99,9 @@ io.on('connection', (socket) => {
   });
 });
 
-// Location POST endpoint (from Flutter app)
-app.post('/api/location', requireApiKey, async (req, res) => {
+// Function to handle location data from hardware trackers and app
+async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp, source }) {
   try {
-    const { vehicle_id, city_id, lat, lng, speed, timestamp, source } = req.body;
-    
-    if (!vehicle_id || !city_id || lat === undefined || lng === undefined || speed === undefined) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
-    }
-
-    // Prepare payload
-    const payload = {
-      vehicle_id, // Actually, in Supabase this is a UUID referencing vehicles.
-      // Wait, the schema says: 
-      // vehicle_id   UUID  REFERENCES vehicles(id)
-      // BUT the flutter app sends "LKO-001" which is a string.
-      // We need to fetch the actual UUID for this vehicle_code!
-    };
-    
     // First find the UUID of the vehicle based on vehicle_code
     const { data: vehicleData, error: vehicleError } = await supabase
       .from('vehicles')
@@ -125,8 +111,7 @@ app.post('/api/location', requireApiKey, async (req, res) => {
 
     if (vehicleError || !vehicleData) {
       console.error('Vehicle not found:', vehicleError);
-      // Even if it fails to save, maybe broadcast? Let's try to save first.
-      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+      return false;
     }
 
     // Now insert location log
@@ -139,14 +124,14 @@ app.post('/api/location', requireApiKey, async (req, res) => {
           lat,
           lng,
           speed,
-          source: source || 'app',
+          source: source || 'hardware',
           timestamp: timestamp || new Date().toISOString()
         }
       ]);
 
     if (insertError) {
       console.error('Error saving location:', insertError);
-      return res.status(500).json({ success: false, message: 'Database error' });
+      return false;
     }
 
     // --- CHECKPOINT (STOP) TRACKING LOGIC ---
@@ -199,16 +184,45 @@ app.post('/api/location', requireApiKey, async (req, res) => {
     // --- END CHECKPOINT LOGIC ---
 
     // Broadcast to Socket.io
-    const locationData = { vehicle_id, city_id, lat, lng, speed, timestamp: timestamp || new Date().toISOString(), source };
+    const locationData = { vehicle_id, city_id: vehicleData.city_id, lat, lng, speed, timestamp: timestamp || new Date().toISOString(), source: source || 'hardware' };
     
     // Broadcast to admin room for this city or general admin room
     io.to('admin-room').emit('location_update', locationData);
-    io.to(`admin-room-${city_id}`).emit('location_update', locationData);
+    io.to(`admin-room-${vehicleData.city_id}`).emit('location_update', locationData);
     
     // Broadcast to vehicle specific room
-    io.to(`vehicle-${vehicle_id}`).emit('location_update', locationData);
+    io.to(`vehicle-${vehicleData.id}`).emit('location_update', locationData);
 
-    return res.json({ success: true, message: 'Location saved and broadcasted' });
+    return true;
+  } catch (error) {
+    console.error('Error in processHardwareLocation:', error);
+    return false;
+  }
+}
+
+// Location POST endpoint (from Flutter app)
+app.post('/api/location', requireApiKey, async (req, res) => {
+  try {
+    const { vehicle_id, city_id, lat, lng, speed, timestamp, source } = req.body;
+    
+    if (!vehicle_id || !city_id || lat === undefined || lng === undefined || speed === undefined) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const success = await processHardwareLocation({
+      vehicle_id,
+      lat,
+      lng,
+      speed,
+      timestamp,
+      source: source || 'app'
+    });
+
+    if (success) {
+      return res.json({ success: true, message: 'Location saved and broadcasted' });
+    } else {
+      return res.status(500).json({ success: false, message: 'Database error or Vehicle not found' });
+    }
 
   } catch (error) {
     console.error('Server error:', error);
@@ -623,6 +637,11 @@ app.get('/api/vehicles/:vehicleCode/stops/weekly', authenticateToken, async (req
 });
 
 const PORT = env.PORT || 3001;
+const TCP_PORT = process.env.TCP_PORT || 5901;
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Start the TCP server for GPS hardware trackers
+  startTcpServer(TCP_PORT, processHardwareLocation);
 });
