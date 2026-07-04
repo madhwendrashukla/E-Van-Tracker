@@ -51,11 +51,7 @@ function startTcpServer(port, processHardwareLocation) {
             console.log(`[TCP Server] Parsed GT06 Protocol: 0x${parsedData.protocol.toString(16).padStart(2, '0').toUpperCase()}`);
             
             if (parsedData.imei) {
-              // Strip leading zero if it's 16 chars (e.g. 0869... -> 869...) to match 15-digit IMEI in DB
-              let imei = parsedData.imei;
-              if (imei.length === 16 && imei.startsWith('0')) {
-                imei = imei.substring(1);
-              }
+              const imei = parsedData.imei;
               console.log(`[TCP Server] IMEI: ${imei}`);
               // Associate this socket with the IMEI for future location logs
               socket.imei = imei;
