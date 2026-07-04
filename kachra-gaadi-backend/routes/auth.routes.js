@@ -120,7 +120,7 @@ router.post('/login', authLimiter, async (req, res) => {
 // POST /api/auth/refresh
 router.post('/refresh', async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
     if (!refreshToken) return res.status(401).json({ success: false, message: 'No refresh token' });
 
     // Verify refresh token signature
