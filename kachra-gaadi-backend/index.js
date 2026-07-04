@@ -270,6 +270,19 @@ app.get('/api/vehicles/active', async (req, res) => {
   }
 });
 
+// Get specific vehicle details (Public)
+app.get('/api/vehicles/info/:vehicleCode', async (req, res) => {
+  try {
+    const { vehicleCode } = req.params;
+    const { data, error } = await supabase.from('vehicles').select('*').ilike('vehicle_code', vehicleCode).single();
+    if (error || !data) return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching vehicle info:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Get all vehicles (Admin and Supervisor)
 app.get('/api/vehicles', authenticateToken, authorizeRole('admin', 'supervisor'), async (req, res) => {
   try {
@@ -316,8 +329,8 @@ app.put('/api/vehicles/:id/route', async (req, res) => {
   }
 });
 
-// Get historical route for a specific vehicle (last 24 hours)
-app.get('/api/location/history/:vehicleCode', authenticateToken, async (req, res) => {
+// Get historical route for a specific vehicle (last 24 hours) - Public for tracking
+app.get('/api/location/history/:vehicleCode', async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     
@@ -469,8 +482,8 @@ app.post('/api/routes/:id/stops', authenticateToken, authorizeRole('admin'), asy
   }
 });
 
-// Get vehicle's assigned route and stops
-app.get('/api/vehicles/:vehicleCode/route', authenticateToken, async (req, res) => {
+// Get vehicle's assigned route and stops - Public for tracking
+app.get('/api/vehicles/:vehicleCode/route', async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     

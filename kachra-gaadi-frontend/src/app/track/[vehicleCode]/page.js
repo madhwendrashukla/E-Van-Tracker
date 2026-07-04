@@ -69,16 +69,15 @@ export default function TrackVehicle({ params }) {
   useEffect(() => {
     if (!vehicleCode) return;
     
-    // Fetch specific vehicle details from the list
-    api.get(`/api/vehicles`)
+    // Fetch specific vehicle details
+    api.get(`/api/vehicles/info/${vehicleCode}`)
       .then(res => {
         const json = res.data;
-        if (json.success) {
-          const v = json.data.find(veh => veh.vehicle_code.toLowerCase() === vehicleCode.toLowerCase());
-          if (v) setVehicleDetails(v);
+        if (json.success && json.data) {
+          setVehicleDetails(json.data);
         }
       })
-      .catch(err => console.error("Error fetching vehicles", err));
+      .catch(err => console.error("Error fetching vehicle", err));
 
     // Fetch route and stops
     api.get(`/api/vehicles/${vehicleCode}/route`)
