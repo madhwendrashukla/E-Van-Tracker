@@ -84,16 +84,15 @@ const io = new Server(server, {
 // Socket.io connection handling and Auth Middleware
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
-  if (!token) {
-    return next(new Error('Authentication error: No token provided'));
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET);
+      socket.user = decoded;
+    } catch (err) {
+      console.log('Invalid socket token, treating as guest');
+    }
   }
-  try {
-    const decoded = jwt.verify(token, env.JWT_SECRET);
-    socket.user = decoded;
-    next();
-  } catch (err) {
-    return next(new Error('Authentication error: Invalid token'));
-  }
+  next();
 });
 
 io.on('connection', (socket) => {
@@ -101,6 +100,10 @@ io.on('connection', (socket) => {
 
   // Client joins specific rooms (e.g., admin-room or vehicle-LKO-001)
   socket.on('join_room', (room) => {
+    if (room.startsWith('admin-room') && !socket.user) {
+      console.log(`Unauthorized attempt to join ${room} by ${socket.id}`);
+      return; // Must be authenticated to join admin rooms
+    }
     socket.join(room);
     console.log(`Socket ${socket.id} joined room ${room}`);
   });
