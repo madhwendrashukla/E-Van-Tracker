@@ -32,9 +32,16 @@ const app = express();
 // Security Headers
 app.use(helmet());
 
+const allowedOrigins = [
+  env.FRONTEND_URL, 
+  'http://localhost:3000', 
+  'http://127.0.0.1:3000',
+  'https://e-van-tracker.vercel.app' // Fallback in case env variable is missing
+].filter(Boolean);
+
 // CORS configuration - In production, this should be restricted to actual domains
 app.use(cors({ 
-  origin: env.FRONTEND_URL || 'http://localhost:3000', 
+  origin: allowedOrigins, 
   credentials: true 
 }));
 
@@ -65,8 +72,9 @@ app.use('/api/auth', authRoutes);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
