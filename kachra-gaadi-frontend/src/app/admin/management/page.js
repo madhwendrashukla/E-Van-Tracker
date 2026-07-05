@@ -20,7 +20,7 @@ export default function ManagementDashboard() {
 
   // Forms State
   const [cityForm, setCityForm] = useState({ id: null, name: "", code: "", state: "" });
-  const [vehicleForm, setVehicleForm] = useState({ id: null, vehicle_code: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" });
+  const [vehicleForm, setVehicleForm] = useState({ id: null, vehicle_code: "", imei: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" });
   const [routeForm, setRouteForm] = useState({ id: null, name: "", city_id: "", stops: [] });
   const [driverForm, setDriverForm] = useState({ id: null, name: "", phone: "", license_number: "", status: "Active" });
   const [assignmentForm, setAssignmentForm] = useState({ city_id: "", vehicle_id: "", route_id: "" });
@@ -122,7 +122,7 @@ export default function ManagementDashboard() {
       const res = await api[method](url, vehicleForm);
       if (res.data.success) {
         showMessage(`Vehicle ${vehicleForm.id ? 'updated' : 'added'} successfully!`);
-        setVehicleForm({ id: null, vehicle_code: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" });
+        setVehicleForm({ id: null, vehicle_code: "", imei: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" });
         fetchData();
       } else {
         showMessage("Failed to save vehicle.", true);
@@ -382,9 +382,11 @@ export default function ManagementDashboard() {
                           {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                          <input required type="text" placeholder="Vehicle Code" className="w-full border rounded-xl p-3 uppercase"
                           value={vehicleForm.vehicle_code} onChange={e => setVehicleForm({...vehicleForm, vehicle_code: e.target.value.toUpperCase()})} />
+                         <input type="text" placeholder="IMEI Number" className="w-full border rounded-xl p-3"
+                          value={vehicleForm.imei || ""} onChange={e => setVehicleForm({...vehicleForm, imei: e.target.value})} />
                          <input type="text" placeholder="License Plate" className="w-full border rounded-xl p-3 uppercase"
                           value={vehicleForm.license_plate} onChange={e => setVehicleForm({...vehicleForm, license_plate: e.target.value.toUpperCase()})} />
                       </div>
@@ -404,18 +406,19 @@ export default function ManagementDashboard() {
                       </div>
                       <div className="flex gap-2">
                         <button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors">{vehicleForm.id ? "Update" : "Save"}</button>
-                        {vehicleForm.id && <button type="button" onClick={() => setVehicleForm({ id: null, vehicle_code: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" })} className="px-4 bg-gray-200 text-gray-700 rounded-xl font-bold">Cancel</button>}
+                        {vehicleForm.id && <button type="button" onClick={() => setVehicleForm({ id: null, vehicle_code: "", imei: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" })} className="px-4 bg-gray-200 text-gray-700 rounded-xl font-bold">Cancel</button>}
                       </div>
                     </form>
                   </div>
                   
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left">Code</th><th className="px-6 py-3 text-left">License Plate</th><th className="px-6 py-3 text-left">Driver</th><th className="px-6 py-3 text-left">Battery</th><th className="px-6 py-3 text-left">Status</th><th className="px-6 py-3">Actions</th></tr></thead>
+                      <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left">Code</th><th className="px-6 py-3 text-left">IMEI</th><th className="px-6 py-3 text-left">License Plate</th><th className="px-6 py-3 text-left">Driver</th><th className="px-6 py-3 text-left">Battery</th><th className="px-6 py-3 text-left">Status</th><th className="px-6 py-3">Actions</th></tr></thead>
                       <tbody className="divide-y divide-gray-200">
                         {vehicles.map(v => (
                           <tr key={v.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 font-bold">{v.vehicle_code}</td>
+                            <td className="px-6 py-4 text-gray-500 font-mono text-xs">{v.imei || '-'}</td>
                             <td className="px-6 py-4 text-gray-500 font-mono text-xs">{v.license_plate || '-'}</td>
                             <td className="px-6 py-4 text-gray-600">{v.drivers?.name || '-'}</td>
                             <td className="px-6 py-4 text-gray-600">{v.battery_level !== undefined && v.battery_level !== null ? `${v.battery_level}%` : '-'}</td>

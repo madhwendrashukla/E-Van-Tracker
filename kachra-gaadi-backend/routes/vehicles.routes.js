@@ -94,9 +94,10 @@ router.get('/', authenticateToken, authorizeRole('admin', 'supervisor'), async (
 // Create a new vehicle (Admin only)
 router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
-    const { vehicle_code, driver_id, city_id, route_id, license_plate, battery_level, status } = req.body;
+    const { vehicle_code, imei, driver_id, city_id, route_id, license_plate, battery_level, status } = req.body;
     
     const payload = { vehicle_code, city_id };
+    if (imei) payload.imei = imei;
     if (driver_id) payload.driver_id = driver_id;
     if (route_id) payload.route_id = route_id;
     if (license_plate) payload.license_plate = license_plate;
@@ -116,10 +117,11 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
 router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { vehicle_code, driver_id, city_id, route_id, license_plate, battery_level, status } = req.body;
+    const { vehicle_code, imei, driver_id, city_id, route_id, license_plate, battery_level, status } = req.body;
     
     const payload = {};
     if (vehicle_code) payload.vehicle_code = vehicle_code;
+    if (imei !== undefined) payload.imei = imei;
     if (driver_id !== undefined) payload.driver_id = driver_id;
     if (city_id) payload.city_id = city_id;
     if (route_id !== undefined) payload.route_id = route_id;
