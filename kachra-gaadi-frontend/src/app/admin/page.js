@@ -90,7 +90,6 @@ export default function AdminDashboard() {
   }, [Object.keys(vehicles).join(',')]);
 
   return (
-  return (
     <>
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">

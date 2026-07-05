@@ -1,6 +1,6 @@
 "use client";
 import { useRouter, usePathname } from 'next/navigation';
-import api from '../../../utils/axios';
+import api from '../../utils/axios';
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
