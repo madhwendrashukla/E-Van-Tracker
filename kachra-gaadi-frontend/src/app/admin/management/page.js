@@ -616,7 +616,7 @@ export default function ManagementDashboard() {
                         <div className="flex flex-wrap gap-2 text-sm text-gray-600">{stops.map((s, i) => <span key={i} className="bg-gray-50 px-2 py-1 rounded border">{s}</span>)}</div>
                       </div>
                     ))}
-                    {Object.keys(weeklyData).length === 0 && <p className="text-gray-500">Select a vehicle to view data.</p>}
+                    {Object.keys(weeklyData).length === 0 && <p className="text-gray-500">{analyticsVehicle ? "No checkpoint data found for this period." : "Select a vehicle to view data."}</p>}
                   </div>
                 </div>
               )}
