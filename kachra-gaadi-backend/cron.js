@@ -6,9 +6,9 @@ function startCronJobs() {
   cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Running daily location_logs cleanup...');
     try {
-      // Calculate timestamp 24 hours ago
+      // Calculate timestamp 7 days ago
       const cutoff = new Date();
-      cutoff.setHours(cutoff.getHours() - 24);
+      cutoff.setHours(cutoff.getHours() - (7 * 24));
       
       const { data, error } = await supabase
         .from('location_logs')
