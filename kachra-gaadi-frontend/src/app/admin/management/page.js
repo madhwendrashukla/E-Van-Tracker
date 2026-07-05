@@ -16,6 +16,7 @@ export default function ManagementDashboard() {
   const [routes, setRoutes] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [settings, setSettings] = useState([]);
+  const [weeklyData, setWeeklyData] = useState({});
   const [analyticsVehicle, setAnalyticsVehicle] = useState("");
   const [analyticsCity, setAnalyticsCity] = useState("");
   
