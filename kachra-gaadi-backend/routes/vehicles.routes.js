@@ -274,10 +274,11 @@ router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
   }
 });
 
-// Get weekly checkpoint stats for a vehicle
-router.get('/:vehicleCode/stops/weekly', authenticateToken, async (req, res) => {
+// Get historical checkpoint stats for a vehicle (with optional date filters)
+router.get('/:vehicleCode/stops/history', authenticateToken, async (req, res) => {
   try {
     const { vehicleCode } = req.params;
+    const { start_date, end_date } = req.query;
 
     // 1. Get vehicle
     const { data: vehicle, error: vError } = await supabase
@@ -288,22 +289,33 @@ router.get('/:vehicleCode/stops/weekly', authenticateToken, async (req, res) => 
 
     if (vError || !vehicle) return res.status(404).json({ success: false, message: 'Vehicle not found' });
 
-    // 7 days ago
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    // 2. Get visits in the last 7 days
-    const { data, error } = await supabase
+    // 2. Determine date range
+    let startDate = start_date;
+    let endDate = end_date;
+    
+    if (!startDate) {
+      // Default to 7 days ago if no start date is provided
+      startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    }
+    
+    let query = supabase
       .from('stop_visits')
       .select('visit_date, stop_id, stops(name)')
       .eq('vehicle_id', vehicle.id)
-      .gte('visit_date', sevenDaysAgo)
+      .gte('visit_date', startDate)
       .order('visit_date', { ascending: false });
+
+    if (endDate) {
+      query = query.lte('visit_date', endDate);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
     res.json({ success: true, data });
   } catch (error) {
-    console.error('Error fetching weekly stops:', error);
+    console.error('Error fetching historical stops:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

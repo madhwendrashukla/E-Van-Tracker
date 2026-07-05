@@ -17,6 +17,13 @@ export default function ManagementDashboard() {
   const [drivers, setDrivers] = useState([]);
   const [settings, setSettings] = useState([]);
   const [weeklyData, setWeeklyData] = useState({});
+  const [analyticsVehicle, setAnalyticsVehicle] = useState("");
+  
+  // Date logic for analytics: default to last 7 days
+  const todayStr = new Date().toISOString().split('T')[0];
+  const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const [analyticsStart, setAnalyticsStart] = useState(sevenDaysAgoStr);
+  const [analyticsEnd, setAnalyticsEnd] = useState(todayStr);
 
   // Forms State
   const [cityForm, setCityForm] = useState({ id: null, name: "", code: "", state: "" });
@@ -141,6 +148,27 @@ export default function ManagementDashboard() {
         fetchData();
       }
     } catch (err) { showMessage("Error deleting vehicle.", true); }
+  };
+
+  // --- Analytics Fetcher ---
+  const fetchAnalytics = async (code, start, end) => {
+    try {
+      let url = `/api/vehicles/${code}/stops/history`;
+      if (start || end) {
+        url += `?start_date=${start || ''}&end_date=${end || ''}`;
+      }
+      const res = await api.get(url);
+      if (res.data.success) {
+        const grouped = res.data.data.reduce((acc, curr) => {
+          if (!acc[curr.visit_date]) acc[curr.visit_date] = [];
+          acc[curr.visit_date].push(curr.stops.name);
+          return acc;
+        }, {});
+        setWeeklyData(grouped);
+      }
+    } catch(err) {
+      console.error("Failed to fetch analytics:", err);
+    }
   };
 
   // --- Handlers for Routes ---
@@ -532,25 +560,51 @@ export default function ManagementDashboard() {
               )}
               {activeTab === "analytics" && (
                 <div className="max-w-4xl">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Weekly Checkpoint Analytics</h3>
-                  <select className="w-full max-w-md border rounded-xl p-3 mb-6" onChange={async (e) => {
-                    const code = e.target.value;
-                    if (!code) { setWeeklyData({}); return; }
-                    try {
-                      const res = await api.get(`/api/vehicles/${code}/stops/weekly`);
-                      if (res.data.success) {
-                        const grouped = res.data.data.reduce((acc, curr) => {
-                          if (!acc[curr.visit_date]) acc[curr.visit_date] = [];
-                          acc[curr.visit_date].push(curr.stops.name);
-                          return acc;
-                        }, {});
-                        setWeeklyData(grouped);
-                      }
-                    } catch(err) {}
-                  }}>
-                    <option value="">Select a vehicle</option>
-                    {vehicles.map(v => <option key={v.id} value={v.vehicle_code}>{v.vehicle_code}</option>)}
-                  </select>
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Checkpoint Analytics (History)</h3>
+                  
+                  <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white p-4 rounded-xl border shadow-sm">
+                    <div className="flex-1">
+                      <label className="text-xs font-bold text-gray-500 mb-1 block">Vehicle</label>
+                      <select 
+                        className="w-full border rounded-xl p-3" 
+                        value={analyticsVehicle}
+                        onChange={async (e) => {
+                          const code = e.target.value;
+                          setAnalyticsVehicle(code);
+                          if (!code) { setWeeklyData({}); return; }
+                          fetchAnalytics(code, analyticsStart, analyticsEnd);
+                        }}>
+                        <option value="">Select a vehicle...</option>
+                        {vehicles.map(v => <option key={v.id} value={v.vehicle_code}>{v.vehicle_code}</option>)}
+                      </select>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <label className="text-xs font-bold text-gray-500 mb-1 block">Start Date</label>
+                      <input 
+                        type="date" 
+                        className="w-full border rounded-xl p-3" 
+                        value={analyticsStart}
+                        onChange={(e) => {
+                          setAnalyticsStart(e.target.value);
+                          if (analyticsVehicle) fetchAnalytics(analyticsVehicle, e.target.value, analyticsEnd);
+                        }}
+                      />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <label className="text-xs font-bold text-gray-500 mb-1 block">End Date</label>
+                      <input 
+                        type="date" 
+                        className="w-full border rounded-xl p-3" 
+                        value={analyticsEnd}
+                        onChange={(e) => {
+                          setAnalyticsEnd(e.target.value);
+                          if (analyticsVehicle) fetchAnalytics(analyticsVehicle, analyticsStart, e.target.value);
+                        }}
+                      />
+                    </div>
+                  </div>
                   
                   <div className="space-y-4">
                     {Object.entries(weeklyData).map(([date, stops]) => (
