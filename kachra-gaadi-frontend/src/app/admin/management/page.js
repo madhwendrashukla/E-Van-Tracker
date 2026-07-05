@@ -16,15 +16,9 @@ export default function ManagementDashboard() {
   const [routes, setRoutes] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [settings, setSettings] = useState([]);
-  const [weeklyData, setWeeklyData] = useState({});
   const [analyticsVehicle, setAnalyticsVehicle] = useState("");
+  const [analyticsCity, setAnalyticsCity] = useState("");
   
-  // Date logic for analytics: default to last 7 days
-  const todayStr = new Date().toISOString().split('T')[0];
-  const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const [analyticsStart, setAnalyticsStart] = useState(sevenDaysAgoStr);
-  const [analyticsEnd, setAnalyticsEnd] = useState(todayStr);
-
   // Forms State
   const [cityForm, setCityForm] = useState({ id: null, name: "", code: "", state: "" });
   const [vehicleForm, setVehicleForm] = useState({ id: null, vehicle_code: "", imei: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" });
@@ -151,12 +145,9 @@ export default function ManagementDashboard() {
   };
 
   // --- Analytics Fetcher ---
-  const fetchAnalytics = async (code, start, end) => {
+  const fetchAnalytics = async (code) => {
     try {
-      let url = `/api/vehicles/${code}/stops/history`;
-      if (start || end) {
-        url += `?start_date=${start || ''}&end_date=${end || ''}`;
-      }
+      const url = `/api/vehicles/${code}/stops/history`;
       const res = await api.get(url);
       if (res.data.success) {
         const grouped = res.data.data.reduce((acc, curr) => {
@@ -560,64 +551,67 @@ export default function ManagementDashboard() {
               )}
               {activeTab === "analytics" && (
                 <div className="max-w-4xl">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Checkpoint Analytics (History)</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Daily Checkpoint Analytics</h3>
                   
                   <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white p-4 rounded-xl border shadow-sm">
+                    <div className="flex-1">
+                      <label className="text-xs font-bold text-gray-500 mb-1 block">City</label>
+                      <select 
+                        className="w-full border rounded-xl p-3" 
+                        value={analyticsCity}
+                        onChange={(e) => {
+                          setAnalyticsCity(e.target.value);
+                          setAnalyticsVehicle("");
+                          setWeeklyData({});
+                        }}>
+                        <option value="">Select a city...</option>
+                        {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+
                     <div className="flex-1">
                       <label className="text-xs font-bold text-gray-500 mb-1 block">Vehicle</label>
                       <select 
                         className="w-full border rounded-xl p-3" 
                         value={analyticsVehicle}
+                        disabled={!analyticsCity}
                         onChange={async (e) => {
                           const code = e.target.value;
                           setAnalyticsVehicle(code);
                           if (!code) { setWeeklyData({}); return; }
-                          fetchAnalytics(code, analyticsStart, analyticsEnd);
+                          fetchAnalytics(code);
                         }}>
                         <option value="">Select a vehicle...</option>
-                        {vehicles.map(v => <option key={v.id} value={v.vehicle_code}>{v.vehicle_code}</option>)}
+                        {vehicles.filter(v => v.city_id === analyticsCity).map(v => <option key={v.id} value={v.vehicle_code}>{v.vehicle_code}</option>)}
                       </select>
-                    </div>
-                    
-                    <div className="flex-1">
-                      <label className="text-xs font-bold text-gray-500 mb-1 block">Start Date</label>
-                      <input 
-                        type="date" 
-                        className="w-full border rounded-xl p-3" 
-                        value={analyticsStart}
-                        onChange={(e) => {
-                          setAnalyticsStart(e.target.value);
-                          if (analyticsVehicle) fetchAnalytics(analyticsVehicle, e.target.value, analyticsEnd);
-                        }}
-                      />
-                    </div>
-                    
-                    <div className="flex-1">
-                      <label className="text-xs font-bold text-gray-500 mb-1 block">End Date</label>
-                      <input 
-                        type="date" 
-                        className="w-full border rounded-xl p-3" 
-                        value={analyticsEnd}
-                        onChange={(e) => {
-                          setAnalyticsEnd(e.target.value);
-                          if (analyticsVehicle) fetchAnalytics(analyticsVehicle, analyticsStart, e.target.value);
-                        }}
-                      />
                     </div>
                   </div>
                   
-                  <div className="space-y-4">
-                    {Object.entries(weeklyData).map(([date, stops]) => (
-                      <div key={date} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-center mb-3">
-                          <h4 className="font-bold text-emerald-700">{new Date(date).toDateString()}</h4>
-                          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-bold rounded-full text-xs">{stops.length} Checkpoints</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-sm text-gray-600">{stops.map((s, i) => <span key={i} className="bg-gray-50 px-2 py-1 rounded border">{s}</span>)}</div>
+                  {analyticsVehicle && (() => {
+                    const selectedVehicleData = vehicles.find(v => v.vehicle_code === analyticsVehicle);
+                    const selectedRoute = selectedVehicleData ? routes.find(r => r.id === selectedVehicleData.route_id) : null;
+                    const totalStopsInRoute = selectedRoute && selectedRoute.stops ? selectedRoute.stops.length : 0;
+
+                    return (
+                      <div className="space-y-4">
+                        {Object.entries(weeklyData).map(([date, stops]) => (
+                          <div key={date} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex justify-between items-center mb-3">
+                              <h4 className="font-bold text-emerald-700">{new Date(date).toDateString()}</h4>
+                              <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-bold rounded-full text-xs">
+                                {stops.length} / {totalStopsInRoute} Completed
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                              {stops.map((s, i) => <span key={i} className="bg-gray-50 px-2 py-1 rounded border">{s}</span>)}
+                            </div>
+                          </div>
+                        ))}
+                        {Object.keys(weeklyData).length === 0 && <p className="text-gray-500">No checkpoint data found for this vehicle.</p>}
                       </div>
-                    ))}
-                    {Object.keys(weeklyData).length === 0 && <p className="text-gray-500">{analyticsVehicle ? "No checkpoint data found for this period." : "Select a vehicle to view data."}</p>}
-                  </div>
+                    );
+                  })()}
+                  {!analyticsVehicle && <p className="text-gray-500">Select a city and vehicle to view data.</p>}
                 </div>
               )}
 
