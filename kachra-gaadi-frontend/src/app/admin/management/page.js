@@ -346,12 +346,13 @@ export default function ManagementDashboard() {
                   
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left">Name</th><th className="px-6 py-3 text-left">Phone</th><th className="px-6 py-3 text-left">Status</th><th className="px-6 py-3">Actions</th></tr></thead>
+                      <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left">Name</th><th className="px-6 py-3 text-left">Phone</th><th className="px-6 py-3 text-left">License</th><th className="px-6 py-3 text-left">Status</th><th className="px-6 py-3">Actions</th></tr></thead>
                       <tbody className="divide-y divide-gray-200">
                         {drivers.map(d => (
                           <tr key={d.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 font-bold">{d.name}</td>
                             <td className="px-6 py-4">{d.phone || '-'}</td>
+                            <td className="px-6 py-4 text-gray-500 font-mono text-xs">{d.license_number || '-'}</td>
                             <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold ${d.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{d.status}</span></td>
                             <td className="px-6 py-4 text-center">
                               <button onClick={() => setDriverForm(d)} className="text-blue-500 hover:text-blue-700 mx-2">Edit</button>

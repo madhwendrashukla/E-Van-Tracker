@@ -9,6 +9,12 @@ const jwt = require('jsonwebtoken');
 const env = require('./config/env');
 const supabase = require('./config/supabase');
 const authRoutes = require('./routes/auth.routes');
+const citiesRoutes = require('./routes/cities.routes');
+const vehiclesRoutes = require('./routes/vehicles.routes');
+const driversRoutes = require('./routes/drivers.routes');
+const routesRoutes = require('./routes/routes.routes');
+const usersRoutes = require('./routes/users.routes');
+const settingsRoutes = require('./routes/settings.routes');
 const { startTcpServer } = require('./tcpServer');
 const { authenticateToken, authorizeRole } = require('./middleware/auth');
 
@@ -69,8 +75,14 @@ const requireApiKey = (req, res, next) => {
   next();
 };
 
-// Auth routes
+// API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/cities', citiesRoutes);
+app.use('/api/vehicles', vehiclesRoutes);
+app.use('/api/drivers', driversRoutes);
+app.use('/api/routes', routesRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/settings', settingsRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
