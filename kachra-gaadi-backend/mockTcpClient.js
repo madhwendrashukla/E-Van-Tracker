@@ -6,9 +6,11 @@ const HOST = '127.0.0.1';
 
 client.connect(PORT, HOST, () => {
     console.log('Connected to TCP Server');
-    // Send a mock GT06 login packet (hex)
-    const mockPacket = Buffer.from('78780D01012345678901234500018C210D0A', 'hex');
-    client.write(mockPacket);
+    // Send a mock GT06 login packet and location packet concatenated
+    const loginPacket = Buffer.from('78780D01086938904533031000018C210D0A', 'hex');
+    const locationPacket = Buffer.from('78781F120B081D112E0A027AC7EB0C46584900148F01CC00287D001FBA0000000000018C210D0A', 'hex');
+    const combinedPacket = Buffer.concat([loginPacket, locationPacket]);
+    client.write(combinedPacket);
 });
 
 client.on('data', (data) => {
