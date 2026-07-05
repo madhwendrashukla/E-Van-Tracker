@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../utils/axios";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function Home() {
   const [cityId, setCityId] = useState("");
   const [vehicleCode, setVehicleCode] = useState("");
+  const [cities, setCities] = useState([]);
   const router = useRouter();
+
+  useEffect(() => {
+    api.get('/api/cities')
+      .then(res => {
+        if (res.data.success) {
+          setCities(res.data.data);
+        }
+      })
+      .catch(err => console.error("Failed to load cities", err));
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -51,10 +63,9 @@ export default function Home() {
                   required
                 >
                   <option value="" disabled>Select your region</option>
-                  <option value="LKO">Lucknow (LKO)</option>
-                  <option value="KNP">Kanpur (KNP)</option>
-                  <option value="AGR">Agra (AGR)</option>
-                  <option value="VNS">Varanasi (VNS)</option>
+                  {cities.map(c => (
+                    <option key={c.id} value={c.code || c.id}>{c.name} ({c.code || c.id})</option>
+                  ))}
                 </select>
                 <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
                   <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
