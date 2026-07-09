@@ -4,7 +4,7 @@ const supabase = require('../config/supabase');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 // Get all cities
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase.from('cities').select('*');
     if (error) throw error;

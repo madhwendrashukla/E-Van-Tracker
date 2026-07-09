@@ -34,7 +34,7 @@ ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS battery_level NUMERIC DEFAU
 -- Status was already there in vehicles as per index.js (`status: v.status`), but just in case, ensure it's there
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehicles' AND column_name='status') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehicles' AND column_name='status') THEKON
         ALTER TABLE public.vehicles ADD COLUMN status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Maintenance', 'Inactive'));
     END IF;
 END $$;

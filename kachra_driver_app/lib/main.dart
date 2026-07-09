@@ -79,17 +79,25 @@ void onStart(ServiceInstance service) async {
 
   StreamSubscription<Position>? positionStream;
 
+  DateTime? lastSent;
+
   // Listen to continuous high-precision GPS stream
   positionStream = Geolocator.getPositionStream(
     locationSettings: const LocationSettings(
       accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 3, // Update only if vehicle moves at least 3 meters
     ),
   ).listen((Position position) async {
     // Filter out inaccurate cellular/wifi triangulation jumps
     if (position.accuracy > 30.0) {
       return; 
     }
+
+    final now = DateTime.now();
+    if (lastSent != null && now.difference(lastSent!).inSeconds < 10) {
+      // Throttle to max 1 update per 10 seconds to prevent spam
+      return;
+    }
+    lastSent = now;
 
     final speedKmh = position.speed * 3.6; // Convert m/s to km/h
     final timestamp = DateTime.now().toUtc().toIso8601String();
@@ -107,7 +115,10 @@ void onStart(ServiceInstance service) async {
     try {
       final response = await http.post(
         Uri.parse('$apiUrl/api/location'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'default-secret-driver-key'
+        },
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 3));
 
@@ -187,7 +198,10 @@ Future<void> _syncOfflineDataInBackground(String apiUrl, String vehicleCode, Str
       
       final response = await http.post(
         uri,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'default-secret-driver-key'
+        },
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 3));
       

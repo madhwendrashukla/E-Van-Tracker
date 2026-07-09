@@ -227,6 +227,21 @@ router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
     const coveredStops = visitedStopIds.size;
     const remaining = Math.max(0, totalStops - coveredStops);
 
+    // Calculate advanced stop categories
+    let maxVisitedOrder = 0;
+    const completed_stops = [];
+    if (stops && visits) {
+      const visitedStopsList = stops.filter(s => visitedStopIds.has(s.id));
+      if (visitedStopsList.length > 0) {
+        maxVisitedOrder = Math.max(...visitedStopsList.map(s => s.stop_order));
+      }
+      completed_stops.push(...visitedStopsList.map(s => ({ ...s, status: 'completed' })));
+    }
+
+    const missed_stops = [];
+    const upcoming_stops = [];
+    const delayed_stops = [];
+
     // Find next unvisited stop
     let nextStop = null;
     if (stops) {
@@ -236,6 +251,7 @@ router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
     let distanceToNext = null;
     let etaMinutes = null;
     let avgSpeed = 0;
+    let latestLog = null;
 
     if (logs && logs.length > 0) {
       const validLogs = logs.filter(l => l.speed !== null && l.speed !== undefined);
@@ -243,7 +259,7 @@ router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
         avgSpeed = validLogs.reduce((sum, l) => sum + parseFloat(l.speed), 0) / validLogs.length;
       }
 
-      const latestLog = logs[0];
+      latestLog = logs[0];
       if (nextStop && latestLog.lat && latestLog.lng) {
         distanceToNext = getDistanceInMetersLocal(latestLog.lat, latestLog.lng, nextStop.lat, nextStop.lng);
         
@@ -255,6 +271,33 @@ router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
       }
     }
 
+    // Populate advanced categories
+    if (stops) {
+      stops.forEach(s => {
+        if (!visitedStopIds.has(s.id)) {
+          if (s.stop_order < maxVisitedOrder) {
+            missed_stops.push({ ...s, status: 'missed' });
+          } else {
+            let isDelayed = false;
+            let stopEtaMinutes = null;
+            if (latestLog && latestLog.lat && latestLog.lng) {
+              const dist = getDistanceInMetersLocal(latestLog.lat, latestLog.lng, s.lat, s.lng);
+              const speedToUse = avgSpeed > 5 ? avgSpeed : (parseFloat(latestLog.speed) > 0 ? parseFloat(latestLog.speed) : 15);
+              const speedMetersPerMin = (speedToUse * 1000) / 60;
+              if (speedMetersPerMin > 0) {
+                stopEtaMinutes = Math.round(dist / speedMetersPerMin);
+                if (stopEtaMinutes > 60) isDelayed = true; // Considered delayed if ETA > 60 mins
+              }
+            }
+
+            const stopData = { ...s, status: 'upcoming', eta_minutes: stopEtaMinutes };
+            upcoming_stops.push(stopData);
+            if (isDelayed) delayed_stops.push(stopData);
+          }
+        }
+      });
+    }
+
     res.json({
       success: true,
       data: {
@@ -264,7 +307,11 @@ router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
         next_stop: nextStop ? nextStop.name : null,
         distance_to_next: distanceToNext ? Math.round(distanceToNext) : null,
         eta_minutes: etaMinutes,
-        average_speed: avgSpeed ? parseFloat(avgSpeed.toFixed(1)) : 0
+        average_speed: avgSpeed ? parseFloat(avgSpeed.toFixed(1)) : 0,
+        completed_stops,
+        missed_stops,
+        delayed_stops,
+        upcoming_stops
       }
     });
 

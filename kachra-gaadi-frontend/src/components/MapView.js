@@ -546,27 +546,36 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
         plannedRouteLineRef.current.setMap(null);
       }
 
-      // Fetch OSRM Road Route (Only once per stop list change)
+      // Fetch Route (Only once per stop list change)
       if (plannedStops.length > 1 && !isBuilderMode) {
         const routeKey = plannedStops.map(s => s.stop_order).join(',');
         if (osrmRoute.length === 0 && routeFetchedForRef.current !== routeKey) {
           routeFetchedForRef.current = routeKey;
-          const fetchRoute = async () => {
-            try {
-              // Construct OSRM coordinate string: lon,lat;lon,lat
-              const coordString = plannedStops.map(s => `${s.lng},${s.lat}`).join(';');
-              const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`);
-              const data = await res.json();
-              if (data.routes && data.routes.length > 0) {
-                const geometry = data.routes[0].geometry.coordinates; // Array of [lng, lat]
-                const path = geometry.map(coord => ({ lat: coord[1], lng: coord[0] }));
+          const fetchRoute = () => {
+            const directionsService = new window.google.maps.DirectionsService();
+            const origin = { lat: plannedStops[0].lat, lng: plannedStops[0].lng };
+            const destination = { lat: plannedStops[plannedStops.length - 1].lat, lng: plannedStops[plannedStops.length - 1].lng };
+            const waypoints = plannedStops.slice(1, -1).map(s => ({
+              location: { lat: s.lat, lng: s.lng },
+              stopover: true
+            }));
+
+            directionsService.route({
+              origin,
+              destination,
+              waypoints,
+              travelMode: 'DRIVING',
+              optimizeWaypoints: true // TSP optimization for shortest path (Swiggy/Zomato style)
+            }, (result, status) => {
+              if (status === 'OK') {
+                const path = result.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
                 setOsrmRoute(path);
+              } else {
+                console.error("Directions Routing failed:", status);
+                // Fallback to straight lines
+                setOsrmRoute(plannedStops.map(s => ({ lat: s.lat, lng: s.lng })));
               }
-            } catch(e) {
-              console.error("OSRM Routing failed:", e);
-              // Fallback to straight lines
-              setOsrmRoute(plannedStops.map(s => ({ lat: s.lat, lng: s.lng })));
-            }
+            });
           };
           fetchRoute();
         }
