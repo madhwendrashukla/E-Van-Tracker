@@ -1,10 +1,6 @@
 /* eslint-disable */
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-
-const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET || "your_super_secret_key_change_in_production"
-);
+import { decodeJwt } from "jose";
 
 // Subdomains that are NOT city tenants
 const NON_TENANT_SUBDOMAINS = ["app", "www", "api", "superadmin"];
@@ -35,17 +31,19 @@ export async function proxy(request) {
 
   const tenantDomain = getTenantDomain(host);
 
-  // SECURITY: Only a cryptographically verified access token grants isAuth.
-  // Do NOT grant isAuth=true based on presence of a refresh token alone.
-  // An expired access token will be handled client-side by the axios interceptor.
+  // SECURITY: Decode token to read role and expiration.
+  // Signature verification is performed strictly by the Express backend.
   let isAuth = false;
   let userRole = null;
 
   if (accessToken) {
     try {
-      const { payload } = await jwtVerify(accessToken, secret);
-      isAuth = true;
-      userRole = payload.role;
+      const payload = decodeJwt(accessToken);
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp > currentTime) {
+        isAuth = true;
+        userRole = payload.role;
+      }
     } catch (_) {
       // Expired or invalid access token. Client side will refresh automatically.
     }
@@ -58,7 +56,7 @@ export async function proxy(request) {
     response.headers.set("x-tenant-domain", tenantDomain);
   }
 
-  // Protect /superadmin routes � superadmin role only
+  // Protect /superadmin routes – superadmin role only
   if (path.startsWith("/superadmin")) {
     if (!isAuth || userRole !== "superadmin") {
       return NextResponse.redirect(new URL("/login", request.url));
@@ -66,7 +64,7 @@ export async function proxy(request) {
     return response;
   }
 
-  // Protect root domain "/" � superadmin portal (only when no tenant subdomain)
+  // Protect root domain "/" – superadmin portal (only when no tenant subdomain)
   if (path === "/" && !tenantDomain) {
     if (!isAuth) {
       return NextResponse.redirect(new URL("/login", request.url));

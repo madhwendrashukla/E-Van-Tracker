@@ -1,12 +1,15 @@
 require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 async function run() {
-  const { data, error } = await supabase.from('vehicles').select('*');
-  console.log('Vehicles:', data);
-  if (error) console.error('Error:', error);
+  const url = process.env.SUPABASE_URL + '/rest/v1/cities?select=*';
+  const response = await fetch(url, {
+    headers: {
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+    }
+  });
+  const data = await response.json();
+  console.log('Cities:', JSON.stringify(data, null, 2));
 }
 
-run();
+run().catch(console.error);
