@@ -57,7 +57,7 @@ export async function proxy(request) {
     response.headers.set("x-tenant-domain", tenantDomain);
   }
 
-  // Protect /superadmin routes — superadmin role only
+  // Protect /superadmin routes ï¿½ superadmin role only
   if (path.startsWith("/superadmin")) {
     if (!isAuth || userRole !== "superadmin") {
       return NextResponse.redirect(new URL("/login", request.url));
@@ -65,7 +65,7 @@ export async function proxy(request) {
     return response;
   }
 
-  // Protect root domain "/" — superadmin portal (only when no tenant subdomain)
+  // Protect root domain "/" ï¿½ superadmin portal (only when no tenant subdomain)
   if (path === "/" && !tenantDomain) {
     if (!isAuth) {
       return NextResponse.redirect(new URL("/login", request.url));
