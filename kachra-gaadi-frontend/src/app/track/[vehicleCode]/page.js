@@ -330,7 +330,7 @@ export default function TrackVehicle({ params }) {
                 {isConnected ? 'Live' : 'Offline'}
               </div>
             </div>
-            <p className="text-[11px] text-green-100/80 font-medium mt-0.5">{vehicleCode.toUpperCase()} • {city || 'LKO'}</p>
+            <p className="text-[11px] text-green-100/80 font-medium mt-0.5">{vehicleCode.toUpperCase()} • {vehicleDetails?.cities?.name || vehicleDetails?.cities?.code || city || '...'}</p>
           </div>
         </div>
         <div className="flex items-center gap-5">

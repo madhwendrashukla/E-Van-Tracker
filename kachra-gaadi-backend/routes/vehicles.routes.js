@@ -53,7 +53,19 @@ router.get('/active', async (req, res) => {
 router.get('/info/:vehicleCode', async (req, res) => {
   try {
     const { vehicleCode } = req.params;
-    const { data, error } = await supabase.from('vehicles').select('*').ilike('vehicle_code', vehicleCode).single();
+    let query = supabase.from('vehicles').select('*, cities(subdomain, code, name)').ilike('vehicle_code', vehicleCode);
+    
+    const citySubdomain = req.headers['x-tenant-domain'] || req.headers['x-city-subdomain'];
+    if (citySubdomain) {
+      const { data: city } = await supabase.from('cities').select('id, status').eq('subdomain', citySubdomain).is('deleted_at', null).single();
+      if (city && city.status === 'active') {
+        query = query.eq('city_id', city.id);
+      } else {
+        return res.status(404).json({ success: false, message: 'Vehicle not found' });
+      }
+    }
+
+    const { data, error } = await query.single();
     if (error || !data) return res.status(404).json({ success: false, message: 'Vehicle not found' });
     res.json({ success: true, data });
   } catch (error) {
@@ -67,11 +79,19 @@ router.get('/:vehicleCode/route', async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     
-    const { data: vehicle, error: vError } = await supabase
-      .from('vehicles')
-      .select('route_id')
-      .ilike('vehicle_code', vehicleCode)
-      .single();
+    let vehicleQuery = supabase.from('vehicles').select('route_id, city_id').ilike('vehicle_code', vehicleCode);
+    
+    const citySubdomain = req.headers['x-tenant-domain'] || req.headers['x-city-subdomain'];
+    if (citySubdomain) {
+      const { data: city } = await supabase.from('cities').select('id, status').eq('subdomain', citySubdomain).is('deleted_at', null).single();
+      if (city && city.status === 'active') {
+        vehicleQuery = vehicleQuery.eq('city_id', city.id);
+      } else {
+        return res.status(404).json({ success: false, message: 'Route not found' });
+      }
+    }
+
+    const { data: vehicle, error: vError } = await vehicleQuery.single();
 
     if (vError || !vehicle || !vehicle.route_id) {
       return res.status(404).json({ success: false, message: 'Route not found' });
@@ -208,8 +228,8 @@ function getDistanceInMetersLocal(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// Get today's checkpoint stats and ETA for a vehicle
-router.get('/:vehicleCode/stops/today', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
+// Get today's checkpoint stats and ETA for a vehicle (Public)
+router.get('/:vehicleCode/stops/today', async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     const today = new Date().toISOString().split('T')[0];
@@ -219,7 +239,17 @@ router.get('/:vehicleCode/stops/today', authenticateToken, requireCityScope, che
       .from('vehicles')
       .select('id, route_id')
       .eq('vehicle_code', vehicleCode);
-    if (req.enforcedCityId) vehicleQuery = vehicleQuery.eq('city_id', req.enforcedCityId);
+      
+    const citySubdomain = req.headers['x-tenant-domain'] || req.headers['x-city-subdomain'];
+    if (citySubdomain) {
+      const { data: city } = await supabase.from('cities').select('id, status').eq('subdomain', citySubdomain).is('deleted_at', null).single();
+      if (city && city.status === 'active') {
+        vehicleQuery = vehicleQuery.eq('city_id', city.id);
+      } else {
+        return res.json({ success: true, data: { total: 0, covered: 0, remaining: 0, next_stop: null, distance_to_next: null, eta_minutes: null, average_speed: 0 } });
+      }
+    }
+    
     const { data: vehicle, error: vError } = await vehicleQuery.single();
 
     if (vError || !vehicle || !vehicle.route_id) {

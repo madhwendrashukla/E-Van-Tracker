@@ -48,11 +48,22 @@ module.exports = (processHardwareLocation) => {
     try {
       const { vehicleCode } = req.params;
       
-      const { data: vehicle, error: vError } = await supabase
+      let vehicleQuery = supabase
         .from('vehicles')
         .select('id')
-        .ilike('vehicle_code', vehicleCode)
-        .single();
+        .ilike('vehicle_code', vehicleCode);
+        
+      const citySubdomain = req.headers['x-tenant-domain'] || req.headers['x-city-subdomain'];
+      if (citySubdomain) {
+        const { data: city } = await supabase.from('cities').select('id, status').eq('subdomain', citySubdomain).is('deleted_at', null).single();
+        if (city && city.status === 'active') {
+          vehicleQuery = vehicleQuery.eq('city_id', city.id);
+        } else {
+          return res.status(404).json({ success: false, message: 'Vehicle not found' });
+        }
+      }
+
+      const { data: vehicle, error: vError } = await vehicleQuery.single();
         
       if (vError || !vehicle) return res.status(404).json({ success: false, message: 'Vehicle not found' });
 
