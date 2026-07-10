@@ -53,7 +53,7 @@ router.get('/active', async (req, res) => {
 router.get('/info/:vehicleCode', async (req, res) => {
   try {
     const { vehicleCode } = req.params;
-    let query = supabase.from('vehicles').select('*, cities(subdomain, code, name)').ilike('vehicle_code', vehicleCode);
+    let query = supabase.from('vehicles').select('*, cities(subdomain, code, name), drivers(name)').ilike('vehicle_code', vehicleCode);
     
     const citySubdomain = req.headers['x-tenant-domain'] || req.headers['x-city-subdomain'];
     if (citySubdomain) {
@@ -67,6 +67,12 @@ router.get('/info/:vehicleCode', async (req, res) => {
 
     const { data, error } = await query.single();
     if (error || !data) return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    
+    // Polyfill driver_name for frontend backward compatibility
+    if (data.drivers && data.drivers.name) {
+      data.driver_name = data.drivers.name;
+    }
+    
     res.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching vehicle info:', error);
