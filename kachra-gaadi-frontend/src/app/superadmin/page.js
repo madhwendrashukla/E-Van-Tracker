@@ -65,7 +65,7 @@ const CreateCityModal = ({ onClose, onCreated }) => {
 
   if (inviteResult) {
     const inviteLink = inviteResult.invitation
-      ? `${window.location.origin.replace(/^[^.]+/, 'app')}/accept-invite?token=${inviteResult.invitation.token}`
+      ? `https://${process.env.NEXT_PUBLIC_BASE_DOMAIN || 'mybuildspace.in'}/accept-invite?token=${inviteResult.invitation.token}`
       : null;
     return (
       <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
