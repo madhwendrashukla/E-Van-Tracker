@@ -171,16 +171,19 @@ async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp,
     }
 
     // Find vehicle by vehicle_code OR imei
-    const { data: vehicleData, error: vehicleError } = await supabase
+    const { data: vehicleDataList, error: vehicleError } = await supabase
       .from('vehicles')
       .select('id, city_id, route_id, vehicle_code')
       .or(`vehicle_code.eq.${safeVehicleId},imei.eq.${safeVehicleId}`)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (vehicleError || !vehicleData) {
-      console.error('Vehicle not found:', vehicleError);
+    if (vehicleError || !vehicleDataList || vehicleDataList.length === 0) {
+      console.error('Vehicle not found:', vehicleError || 'No matches found');
       return false;
     }
+
+    const vehicleData = vehicleDataList[0];
 
     // Now insert location log
     const { error: insertError } = await supabase
