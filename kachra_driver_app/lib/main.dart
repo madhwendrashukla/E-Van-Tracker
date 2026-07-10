@@ -295,7 +295,7 @@ class DriverLoginScreen extends StatefulWidget {
 
 class _DriverLoginScreenState extends State<DriverLoginScreen> {
   final _vehicleCodeController = TextEditingController();
-  final _apiUrlController = TextEditingController(text: 'http://10.0.2.2:3001');
+  final _apiUrlController = TextEditingController(text: 'https://backend.mybuildspace.in');
   final _apiKeyController = TextEditingController(text: 'default-secret-driver-key');
 
   @override
