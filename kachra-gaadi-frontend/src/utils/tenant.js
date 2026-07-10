@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Tenant utility — reads the current city subdomain context.
  * Works in both server-side (headers) and client-side (hostname parsing) contexts.

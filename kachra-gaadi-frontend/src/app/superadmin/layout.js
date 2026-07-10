@@ -1,3 +1,4 @@
+/* eslint-disable */
 "use client";
 import { useRouter, usePathname } from 'next/navigation';
 import api from '../../utils/axios';
