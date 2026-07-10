@@ -49,20 +49,23 @@ const allowedOrigins = [
   'https://e-van-tracker.vercel.app'
 ].filter(Boolean);
 
+const checkCorsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true); // allow server-to-server
+  const isAllowed =
+    allowedOrigins.some(o => o && origin === o) ||
+    /^https:\/\/[a-z0-9-]+\.mybuildspace\.in$/.test(origin) ||
+    /^http:\/\/(?:[a-z0-9-]+\.)?localhost:\d+$/.test(origin) ||
+    origin === 'https://e-van-tracker.vercel.app'; // exact match only
+  if (isAllowed) {
+    callback(null, true);
+  } else {
+    callback(new Error('Not allowed by CORS'));
+  }
+};
+
 // CORS: allow wildcard subdomains for multi-tenant (e.g. lucknow.mybuildspace.in)
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true); // allow server-to-server
-    const isAllowed =
-      allowedOrigins.some(o => o && origin === o) ||
-      /^https:\/\/[a-z0-9-]+\.mybuildspace\.in$/.test(origin) ||
-      /^http:\/\/(?:[a-z0-9-]+\.)?localhost:\d+$/.test(origin) ||
-      origin === 'https://e-van-tracker.vercel.app'; // exact match only
-    if (!isAllowed) {
-      return callback(new Error(`CORS policy: origin ${origin} not allowed`));
-    }
-    callback(null, true);
-  },
+  origin: checkCorsOrigin,
   credentials: true
 }));
 
@@ -94,7 +97,7 @@ app.use('/api/superadmin', superadminRoutes);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: checkCorsOrigin,
     methods: ['GET', 'POST'],
     credentials: true
   }
