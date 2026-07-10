@@ -16,7 +16,8 @@ const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV !== 'development',
   sameSite: process.env.NODE_ENV === 'development' ? 'lax' : 'none',
-  path: '/'
+  path: '/',
+  domain: process.env.NEXT_PUBLIC_BASE_DOMAIN ? `.${process.env.NEXT_PUBLIC_BASE_DOMAIN}` : undefined
 };
 
 // Strict auth rate limiter (login, register, invite)
