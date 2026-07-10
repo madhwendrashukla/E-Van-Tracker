@@ -57,7 +57,7 @@ function startTcpServer(port, processHardwareLocation) {
               socket.imei = imei;
             }
 
-            if (parsedData.protocol === 0x12 && parsedData.location && socket.imei) {
+            if ((parsedData.protocol === 0x12 || parsedData.protocol === 0x16) && parsedData.location && socket.imei) {
               console.log(`[TCP Server] Location Update from ${socket.imei}: Lat ${parsedData.location.lat}, Lng ${parsedData.location.lon}`);
               if (typeof processHardwareLocation === 'function') {
                 processHardwareLocation({

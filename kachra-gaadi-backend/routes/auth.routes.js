@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const supabase = require('../config/supabase');
 const env = require('../config/env');
@@ -12,73 +13,38 @@ const REFRESH_TOKEN_EXPIRY = '7d';
 
 const cookieOptions = {
   httpOnly: true,
-  secure: true, // Always true for cross-origin
-  sameSite: 'none', // Needed for cross-origin cookies
+  secure: true,
+  sameSite: 'none',
 };
 
-// Auth Rate Limiter
+// Auth rate limiter
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per windowMs for auth routes
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   message: { success: false, message: 'Too many authentication attempts, please try again later.' }
 });
 
-// Generate Tokens
+// ── Token generation (now includes city_id) ───────────────────────────────────
 const generateTokens = (user) => {
-  const payload = { id: user.id, email: user.email, role: user.role };
+  const payload = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    city_id: user.city_id || null   // null for superadmin
+  };
   const accessToken = jwt.sign(payload, env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
   const refreshToken = jwt.sign(payload, env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
   return { accessToken, refreshToken };
 };
 
-// POST /api/auth/register (Utility for testing, maybe remove in production or protect with Admin role)
-router.post('/register', authLimiter, async (req, res) => {
-  try {
-    const { email, password, role } = req.body;
-    
-    if (!email || !password || !role) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
-    }
-
-    const validRoles = ['admin', 'supervisor', 'driver'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ success: false, message: 'Invalid role' });
-    }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-
-    const { data, error } = await supabase
-      .from('users')
-      .insert([{ email, password_hash, role }])
-      .select('id, email, role')
-      .single();
-
-    if (error) {
-      if (error.code === '23505') { // Unique violation
-        return res.status(409).json({ success: false, message: 'Email already exists' });
-      }
-      throw error;
-    }
-
-    res.status(201).json({ success: true, user: data });
-  } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
-// POST /api/auth/login
+// ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password required' });
     }
 
-    // Find user
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
@@ -89,25 +55,46 @@ router.post('/login', authLimiter, async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Generate tokens
+    // Block login for users belonging to inactive/deleted cities
+    if (user.city_id) {
+      const { data: city } = await supabase
+        .from('cities')
+        .select('status, deleted_at, subdomain, custom_domain')
+        .eq('id', user.city_id)
+        .single();
+
+      if (!city || city.deleted_at) {
+        return res.status(403).json({ success: false, message: 'Your city account has been removed.' });
+      }
+      if (city.status === 'inactive') {
+        return res.status(403).json({ success: false, message: 'Your city subscription is currently inactive. Contact your administrator.' });
+      }
+      user.city_subdomain = city.subdomain;
+      user.custom_domain = city.custom_domain;
+    }
+
     const { accessToken, refreshToken } = generateTokens(user);
 
-    // Save refresh token to DB for stateful invalidation
     await supabase.from('users').update({ refresh_token: refreshToken }).eq('id', user.id);
 
-    // Set HttpOnly cookies
-    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 }); // 15 mins
-    res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 days
+    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+    res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
     res.json({
       success: true,
-      user: { id: user.id, email: user.email, role: user.role },
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        role: user.role, 
+        city_id: user.city_id,
+        city_subdomain: user.city_subdomain,
+        custom_domain: user.custom_domain
+      },
       accessToken,
       refreshToken
     });
@@ -117,13 +104,12 @@ router.post('/login', authLimiter, async (req, res) => {
   }
 });
 
-// POST /api/auth/refresh
+// ── POST /api/auth/refresh ────────────────────────────────────────────────────
 router.post('/refresh', async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
     if (!refreshToken) return res.status(401).json({ success: false, message: 'No refresh token' });
 
-    // Verify refresh token signature
     let decoded;
     try {
       decoded = jwt.verify(refreshToken, env.JWT_SECRET);
@@ -131,10 +117,9 @@ router.post('/refresh', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Invalid or expired refresh token' });
     }
 
-    // Verify token exists in DB
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, role, refresh_token')
+      .select('id, email, role, city_id, refresh_token')
       .eq('id', decoded.id)
       .single();
 
@@ -142,10 +127,7 @@ router.post('/refresh', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Token revoked or invalid' });
     }
 
-    // Generate new tokens (Refresh Token Rotation)
     const { accessToken: newAccessToken, refreshToken: newRefreshToken } = generateTokens(user);
-
-    // Save new refresh token to DB (invalidates the old one)
     await supabase.from('users').update({ refresh_token: newRefreshToken }).eq('id', user.id);
 
     res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
@@ -157,25 +139,154 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout
+// ── POST /api/auth/logout ─────────────────────────────────────────────────────
 router.post('/logout', async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
     if (refreshToken) {
-      // Clear refresh token in DB
       try {
         const decoded = jwt.verify(refreshToken, env.JWT_SECRET, { ignoreExpiration: true });
         await supabase.from('users').update({ refresh_token: null }).eq('id', decoded.id);
-      } catch(err) {
-        // Ignore jwt errors on logout
-      }
+      } catch (_) {}
     }
-
     res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
     res.json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── POST /api/auth/register — LOCKED: Superadmin only ────────────────────────
+// Direct registration is disabled for multi-tenant. Superadmin creates users;
+// City Admins are onboarded via invitation (POST /api/auth/invite/accept).
+// This endpoint remains for Superadmin to create the very first superadmin seed,
+// but is locked behind a BOOTSTRAP_SECRET env var in production.
+router.post('/register', authLimiter, async (req, res) => {
+  // Check for valid superadmin JWT token
+  const token = req.cookies.accessToken || req.headers.authorization?.split(' ')[1];
+  let isSuperadmin = false;
+  
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET);
+      if (decoded.role === 'superadmin') {
+        isSuperadmin = true;
+      }
+    } catch(err) {}
+  }
+
+  if (!isSuperadmin) {
+    const bootstrapSecret = req.headers['x-bootstrap-secret'];
+    if (!bootstrapSecret || bootstrapSecret !== env.BOOTSTRAP_SECRET) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized. Superadmin access required.'
+      });
+    }
+
+    // Allow bootstrap only if NO superadmin exists in DB
+    const { data: existingSuperadmins, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'superadmin')
+      .limit(1);
+      
+    if (checkError) {
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+    
+    if (existingSuperadmins && existingSuperadmins.length > 0) {
+      return res.status(410).json({
+        success: false,
+        message: 'Bootstrap is disabled because a superadmin account already exists.'
+      });
+    }
+  }
+
+  try {
+    const { email, password, role } = req.body;
+    if (!email || !password || !role) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+    if (!['superadmin', 'city_admin', 'admin', 'supervisor'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ email, password_hash, role }])
+      .select('id, email, role')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ success: false, message: 'Email already exists' });
+      throw error;
+    }
+    res.status(201).json({ success: true, user: data });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── POST /api/auth/invite/accept — City Admin sets password from invite link ──
+router.post('/invite/accept', authLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: 'Token and password are required.' });
+    }
+
+    // Look up the invitation
+    const { data: invite, error: inviteError } = await supabase
+      .from('city_invitations')
+      .select('*')
+      .eq('token', token)
+      .single();
+
+    if (inviteError || !invite) {
+      return res.status(404).json({ success: false, message: 'Invalid or expired invitation link.' });
+    }
+    if (invite.used) {
+      return res.status(400).json({ success: false, message: 'This invitation has already been used.' });
+    }
+    if (new Date(invite.expires_at) < new Date()) {
+      return res.status(400).json({ success: false, message: 'This invitation link has expired.' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Check if user already exists (re-invite scenario)
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', invite.email)
+      .single();
+
+    if (existingUser) {
+      // Update existing user's password and ensure city link
+      await supabase.from('users').update({ password_hash, city_id: invite.city_id, role: 'city_admin' }).eq('id', existingUser.id);
+    } else {
+      // Create new city_admin user
+      await supabase.from('users').insert([{
+        email: invite.email,
+        password_hash,
+        role: 'city_admin',
+        city_id: invite.city_id
+      }]);
+    }
+
+    // Mark invitation as used
+    await supabase.from('city_invitations').update({ used: true }).eq('id', invite.id);
+
+    res.json({ success: true, message: 'Password set successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Invite accept error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

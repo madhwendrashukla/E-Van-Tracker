@@ -1,10 +1,19 @@
 "use client";
 import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import api from '../../utils/axios';
+import { getTenantDomainClient, subdomainToDisplayName } from '../../utils/tenant';
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [cityName, setCityName] = useState('');
+
+  useEffect(() => {
+    // Derive city name from subdomain (works instantly on city subdomain)
+    const sub = getTenantDomainClient();
+    if (sub) setCityName(subdomainToDisplayName(sub));
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -34,7 +43,10 @@ export default function AdminLayout({ children }) {
           <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg mr-3 shadow-lg shadow-green-500/20">
              <span className="text-white font-bold">EV</span>
           </div>
-          <h1 className="text-xl font-bold tracking-wider">E-Van Admin</h1>
+          <div>
+            <h1 className="text-base font-bold tracking-wider">E-Van Admin</h1>
+            {cityName && <p className="text-emerald-400 text-xs font-medium">{cityName}</p>}
+          </div>
         </div>
         
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">

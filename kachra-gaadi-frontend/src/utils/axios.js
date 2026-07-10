@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getTenantDomainClient } from './tenant';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001',
@@ -14,6 +15,11 @@ api.interceptors.request.use((config) => {
         config.headers.Authorization = `Bearer ${value}`;
         break;
       }
+    }
+    // Attach tenant domain so backend can scope public endpoints
+    const domain = getTenantDomainClient();
+    if (domain) {
+      config.headers['x-tenant-domain'] = domain;
     }
   }
   return config;
@@ -65,25 +71,28 @@ api.interceptors.response.use(
             }
           }
         }
+        
+        if (!rToken) {
+          throw new Error('No refresh token available');
+        }
+
         const refreshRes = await axios.post(`${api.defaults.baseURL}/api/auth/refresh`, { refreshToken: rToken }, { withCredentials: true });
         
+        const newAccessToken = refreshRes.data.accessToken;
+        
         // Update local cookies
-        if (refreshRes.data.accessToken) {
-          document.cookie = `accessToken=${refreshRes.data.accessToken}; path=/; max-age=900; SameSite=Lax; Secure`;
-          originalRequest.headers.Authorization = `Bearer ${refreshRes.data.accessToken}`;
+        if (newAccessToken) {
+          document.cookie = `accessToken=${newAccessToken}; path=/; max-age=900; SameSite=Lax; Secure`;
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
         if (refreshRes.data.refreshToken) {
           document.cookie = `refreshToken=${refreshRes.data.refreshToken}; path=/; max-age=604800; SameSite=Lax; Secure`;
         }
         
-        processQueue(null, refreshRes.data.accessToken);
-        isRefreshing = false;
-        
+        processQueue(null, newAccessToken);
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        isRefreshing = false;
-
         if (typeof document !== 'undefined') {
           document.cookie = 'accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure';
           document.cookie = 'refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure';
@@ -95,6 +104,8 @@ api.interceptors.response.use(
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 

@@ -86,8 +86,59 @@ function parseGT06(buffer) {
       }
       break;
     case 0x13: // Status information / Heartbeat
+      if (buffer.length >= 10) {
+        // Just extract basic status for now
+        parsedData.status = {
+          terminalInfo: buffer[4],
+          voltageLevel: buffer[5],
+          gsmSignal: buffer[6]
+        };
+      }
       break;
     case 0x16: // Alarm Data
+      if (buffer.length >= 31) {
+        // Date/Time
+        const datetime = {
+          year: buffer[4],
+          month: buffer[5],
+          day: buffer[6],
+          hour: buffer[7],
+          minute: buffer[8],
+          second: buffer[9]
+        };
+        
+        // Lat/Lon
+        let lat = buffer.readUInt32BE(11) / 1800000;
+        let lon = buffer.readUInt32BE(15) / 1800000;
+        
+        const speed = buffer[19];
+        const courseStatus = buffer.readUInt16BE(20);
+        const isWest = (courseStatus & 0x2000) > 0;
+        const isNorth = (courseStatus & 0x1000) > 0;
+        
+        if (isWest) lon = -lon;
+        if (!isNorth) lat = -lat;
+
+        // Alarm specific
+        const terminalInfo = buffer[26];
+        const voltageLevel = buffer[27];
+        const gsmSignal = buffer[28];
+        const alarmLanguage = buffer[29];
+
+        parsedData.location = {
+          lat,
+          lon,
+          speed,
+          timestamp: new Date(Date.UTC(2000 + datetime.year, datetime.month - 1, datetime.day, datetime.hour, datetime.minute, datetime.second)).toISOString()
+        };
+        
+        parsedData.alarm = {
+          terminalInfo,
+          voltageLevel,
+          gsmSignal,
+          alarmLanguage
+        };
+      }
       break;
   }
 

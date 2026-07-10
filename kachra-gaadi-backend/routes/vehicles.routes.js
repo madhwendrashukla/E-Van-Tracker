@@ -1,17 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
-const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const { authenticateToken, authorizeRole, requireCityScope, checkCityActive } = require('../middleware/auth');
 
-// Get all active vehicles (latest location)
+// Get all active vehicles (latest location) — optionally filtered by subdomain city
 router.get('/active', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    // Optional city filter: frontend passes x-tenant-domain header
+    const citySubdomain = req.headers['x-tenant-domain'] || req.headers['x-city-subdomain'];
+    let query = supabase
       .from('vehicles')
-      .select('*, location_logs!inner(lat, lng, speed, timestamp)')
+      .select('*, cities(subdomain, status), location_logs!inner(lat, lng, speed, timestamp)')
       .order('timestamp', { foreignTable: 'location_logs', ascending: false })
       .limit(1, { foreignTable: 'location_logs' });
 
+    if (citySubdomain) {
+      // Resolve subdomain to city_id for filtering
+      const { data: city } = await supabase
+        .from('cities')
+        .select('id, status')
+        .eq('subdomain', citySubdomain)
+        .is('deleted_at', null)
+        .single();
+      if (city && city.status === 'active') {
+        query = query.eq('city_id', city.id);
+      } else if (city && city.status === 'inactive') {
+        return res.json({ success: true, data: [], inactive: true });
+      }
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     
     const activeVehicles = data.map(v => ({
@@ -78,11 +96,14 @@ router.get('/:vehicleCode/route', async (req, res) => {
   }
 });
 
-// Get all vehicles (Admin and Supervisor)
-router.get('/', authenticateToken, authorizeRole('admin', 'supervisor'), async (req, res) => {
+// Get all vehicles (Admin and Supervisor) — scoped to city
+router.get('/', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
   try {
-    // Left join drivers to get driver info
-    const { data, error } = await supabase.from('vehicles').select('*, drivers(name, phone)');
+    let query = supabase.from('vehicles').select('*, drivers(name, phone)');
+    if (req.enforcedCityId) {
+      query = query.eq('city_id', req.enforcedCityId);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     res.json({ success: true, data });
   } catch (error) {
@@ -91,11 +112,13 @@ router.get('/', authenticateToken, authorizeRole('admin', 'supervisor'), async (
   }
 });
 
-// Create a new vehicle (Admin only)
-router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
+// Create a new vehicle (Admin only) — city_id from JWT, never from client
+router.post('/', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
   try {
-    const { vehicle_code, imei, driver_id, city_id, route_id, license_plate, battery_level, status } = req.body;
-    
+    const { vehicle_code, imei, driver_id, route_id, license_plate, battery_level, status } = req.body;
+    const city_id = req.enforcedCityId || req.body.city_id; // superadmin may pass city_id in body
+    if (!city_id) return res.status(400).json({ success: false, message: 'city_id required' });
+
     const payload = { vehicle_code, city_id };
     if (imei) payload.imei = imei;
     if (driver_id) payload.driver_id = driver_id;
@@ -113,24 +136,27 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
   }
 });
 
-// Update a vehicle
-router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+// Update a vehicle — city_id enforcement prevents cross-city modification
+router.put('/:id', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
   try {
     const { id } = req.params;
-    const { vehicle_code, imei, driver_id, city_id, route_id, license_plate, battery_level, status } = req.body;
+    const { vehicle_code, imei, driver_id, route_id, license_plate, battery_level, status } = req.body;
     
     const payload = {};
     if (vehicle_code) payload.vehicle_code = vehicle_code;
     if (imei !== undefined) payload.imei = imei;
     if (driver_id !== undefined) payload.driver_id = driver_id;
-    if (city_id) payload.city_id = city_id;
     if (route_id !== undefined) payload.route_id = route_id;
     if (license_plate !== undefined) payload.license_plate = license_plate;
     if (battery_level !== undefined) payload.battery_level = battery_level;
     if (status) payload.status = status;
+    // city_id intentionally NOT updatable to prevent tenant hopping
 
-    const { data, error } = await supabase.from('vehicles').update(payload).eq('id', id).select();
+    let query = supabase.from('vehicles').update(payload).eq('id', id);
+    if (req.enforcedCityId) query = query.eq('city_id', req.enforcedCityId);
+    const { data, error } = await query.select();
     if (error) throw error;
+    if (!data?.length) return res.status(404).json({ success: false, message: 'Vehicle not found or not in your city.' });
     res.json({ success: true, data: data[0] });
   } catch (error) {
     console.error('Error updating vehicle:', error);
@@ -138,11 +164,13 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
   }
 });
 
-// Delete a vehicle
-router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+// Delete a vehicle — city scoped
+router.delete('/:id', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+    let query = supabase.from('vehicles').delete().eq('id', id);
+    if (req.enforcedCityId) query = query.eq('city_id', req.enforcedCityId);
+    const { error } = await query;
     if (error) throw error;
     res.json({ success: true, message: 'Vehicle deleted successfully' });
   } catch (error) {
@@ -151,13 +179,16 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
   }
 });
 
-// Assign a route to a vehicle (Alias for backward compatibility)
-router.put('/:id/route', authenticateToken, authorizeRole('admin', 'supervisor'), async (req, res) => {
+// Assign a route to a vehicle — city scoped
+router.put('/:id/route', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
   try {
     const { id } = req.params;
     const { route_id } = req.body;
-    const { data, error } = await supabase.from('vehicles').update({ route_id }).eq('id', id).select();
+    let query = supabase.from('vehicles').update({ route_id }).eq('id', id);
+    if (req.enforcedCityId) query = query.eq('city_id', req.enforcedCityId);
+    const { data, error } = await query.select();
     if (error) throw error;
+    if (!data?.length) return res.status(404).json({ success: false, message: 'Vehicle not found or not in your city.' });
     res.json({ success: true, data: data[0] });
   } catch (error) {
     console.error('Error assigning route to vehicle:', error);
@@ -178,17 +209,18 @@ function getDistanceInMetersLocal(lat1, lon1, lat2, lon2) {
 }
 
 // Get today's checkpoint stats and ETA for a vehicle
-router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
+router.get('/:vehicleCode/stops/today', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Get vehicle and route
-    const { data: vehicle, error: vError } = await supabase
+    // 1. Get vehicle and route — enforce city scope
+    let vehicleQuery = supabase
       .from('vehicles')
       .select('id, route_id')
-      .eq('vehicle_code', vehicleCode)
-      .single();
+      .eq('vehicle_code', vehicleCode);
+    if (req.enforcedCityId) vehicleQuery = vehicleQuery.eq('city_id', req.enforcedCityId);
+    const { data: vehicle, error: vError } = await vehicleQuery.single();
 
     if (vError || !vehicle || !vehicle.route_id) {
       return res.json({ success: true, data: { total: 0, covered: 0, remaining: 0, next_stop: null, distance_to_next: null, eta_minutes: null, average_speed: 0 } });
@@ -322,17 +354,19 @@ router.get('/:vehicleCode/stops/today', authenticateToken, async (req, res) => {
 });
 
 // Get historical checkpoint stats for a vehicle (with optional date filters)
-router.get('/:vehicleCode/stops/history', authenticateToken, async (req, res) => {
+router.get('/:vehicleCode/stops/history', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
   try {
     const { vehicleCode } = req.params;
     const { start_date, end_date } = req.query;
 
     // 1. Get vehicle
-    const { data: vehicle, error: vError } = await supabase
+    // 1. Get vehicle — enforce city scope
+    let vehicleQuery = supabase
       .from('vehicles')
       .select('id')
-      .eq('vehicle_code', vehicleCode)
-      .single();
+      .eq('vehicle_code', vehicleCode);
+    if (req.enforcedCityId) vehicleQuery = vehicleQuery.eq('city_id', req.enforcedCityId);
+    const { data: vehicle, error: vError } = await vehicleQuery.single();
 
     if (vError || !vehicle) return res.status(404).json({ success: false, message: 'Vehicle not found' });
 

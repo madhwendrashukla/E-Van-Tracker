@@ -66,16 +66,15 @@ void onStart(ServiceInstance service) async {
   final prefs = await SharedPreferences.getInstance();
   final vehicleCode = prefs.getString('vehicle_code') ?? '';
   final apiUrl = prefs.getString('api_url') ?? '';
+  final apiKey = prefs.getString('api_key') ?? 'default-secret-driver-key';
 
   if (vehicleCode.isEmpty || apiUrl.isEmpty) {
     service.stopSelf();
     return;
   }
 
-  final cityId = vehicleCode.split('-').first;
-
   // Run initial background sync
-  _syncOfflineDataInBackground(apiUrl, vehicleCode, cityId);
+  _syncOfflineDataInBackground(apiUrl, vehicleCode, apiKey);
 
   StreamSubscription<Position>? positionStream;
 
@@ -104,7 +103,6 @@ void onStart(ServiceInstance service) async {
     
     final payload = {
       "vehicle_id": vehicleCode,
-      "city_id": cityId,
       "lat": position.latitude,
       "lng": position.longitude,
       "speed": speedKmh,
@@ -117,7 +115,7 @@ void onStart(ServiceInstance service) async {
         Uri.parse('$apiUrl/api/location'),
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': 'default-secret-driver-key'
+          'x-api-key': apiKey,
         },
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 3));
@@ -141,7 +139,7 @@ void onStart(ServiceInstance service) async {
         });
 
         // Try syncing any previously buffered offline data
-        await _syncOfflineDataInBackground(apiUrl, vehicleCode, cityId);
+        await _syncOfflineDataInBackground(apiUrl, vehicleCode, apiKey);
       } else {
         throw Exception("Server rejected packet");
       }
@@ -149,7 +147,6 @@ void onStart(ServiceInstance service) async {
       // Offline fallback: Buffer data locally in SQLite
       await DatabaseHelper.instance.insertLocation({
         "vehicle_id": vehicleCode,
-        "city_id": cityId,
         "lat": position.latitude,
         "lng": position.longitude,
         "speed": speedKmh,
@@ -184,7 +181,7 @@ void onStart(ServiceInstance service) async {
   });
 }
 
-Future<void> _syncOfflineDataInBackground(String apiUrl, String vehicleCode, String cityId) async {
+Future<void> _syncOfflineDataInBackground(String apiUrl, String vehicleCode, String apiKey) async {
   final queued = await DatabaseHelper.instance.getQueuedLocations();
   if (queued.isEmpty) return;
 
@@ -200,7 +197,7 @@ Future<void> _syncOfflineDataInBackground(String apiUrl, String vehicleCode, Str
         uri,
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': 'default-secret-driver-key'
+          'x-api-key': apiKey,
         },
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 3));
@@ -243,7 +240,6 @@ class DatabaseHelper {
       CREATE TABLE location_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         vehicle_id TEXT NOT NULL,
-        city_id TEXT NOT NULL,
         lat REAL NOT NULL,
         lng REAL NOT NULL,
         speed REAL NOT NULL,
@@ -300,6 +296,7 @@ class DriverLoginScreen extends StatefulWidget {
 class _DriverLoginScreenState extends State<DriverLoginScreen> {
   final _vehicleCodeController = TextEditingController();
   final _apiUrlController = TextEditingController(text: 'http://10.0.2.2:3001');
+  final _apiKeyController = TextEditingController(text: 'default-secret-driver-key');
 
   @override
   void initState() {
@@ -311,7 +308,9 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     final code = prefs.getString('vehicle_code');
     final url = prefs.getString('api_url');
+    final key = prefs.getString('api_key');
     if (url != null) _apiUrlController.text = url;
+    if (key != null) _apiKeyController.text = key;
 
     if (code != null && code.isNotEmpty) {
       if (!mounted) return;
@@ -325,11 +324,13 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
   void _login() async {
     final code = _vehicleCodeController.text.trim().toUpperCase();
     final url = _apiUrlController.text.trim();
-    if (code.isEmpty || url.isEmpty) return;
+    final key = _apiKeyController.text.trim();
+    if (code.isEmpty || url.isEmpty || key.isEmpty) return;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('vehicle_code', code);
     await prefs.setString('api_url', url);
+    await prefs.setString('api_key', key);
     
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -358,7 +359,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
                 TextField(
                   controller: _vehicleCodeController,
                   decoration: InputDecoration(
-                    labelText: 'Vehicle Code (e.g. LKO-001)',
+                    labelText: 'Vehicle ID (Code or IMEI)',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     prefixIcon: const Icon(Icons.badge),
                   ),
@@ -371,6 +372,17 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
                     labelText: 'Backend API URL',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     prefixIcon: const Icon(Icons.link),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _apiKeyController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'API Key',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.key),
+                    helperText: 'Get this from your fleet administrator',
                   ),
                 ),
                 const SizedBox(height: 30),

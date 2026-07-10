@@ -4,7 +4,8 @@ const requiredVariables = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'JWT_SECRET',
-  'PORT'
+  'PORT',
+  'DRIVER_API_KEY'
 ];
 
 for (const variable of requiredVariables) {
@@ -20,5 +21,7 @@ module.exports = {
   JWT_SECRET: process.env.JWT_SECRET,
   PORT: process.env.PORT,
   FRONTEND_URL: process.env.FRONTEND_URL,
-  NODE_ENV: process.env.NODE_ENV || 'development'
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  BOOTSTRAP_SECRET: process.env.BOOTSTRAP_SECRET || null,
+  DRIVER_API_KEY: process.env.DRIVER_API_KEY,
 };

@@ -16,12 +16,11 @@ const routesRoutes = require('./routes/routes.routes');
 const usersRoutes = require('./routes/users.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const locationRoutes = require('./routes/location.routes');
+const superadminRoutes = require('./routes/superadmin.routes');
 const { startTcpServer } = require('./tcpServer');
 const { startCronJobs } = require('./cron');
 const { authenticateToken, authorizeRole } = require('./middleware/auth');
-
-// Simple in-memory cache for route stops
-const routeStopsCache = new Map();
+const { routeStopsCache } = require('./utils/cache');
 
 // Haversine formula
 function getDistanceInMeters(lat1, lon1, lat2, lon2) {
@@ -41,16 +40,24 @@ const app = express();
 app.use(helmet());
 
 const allowedOrigins = [
-  env.FRONTEND_URL, 
-  'http://localhost:3000', 
+  env.FRONTEND_URL,
+  'http://localhost:3000',
   'http://127.0.0.1:3000',
-  'https://e-van-tracker.vercel.app' // Fallback in case env variable is missing
+  'https://e-van-tracker.vercel.app'
 ].filter(Boolean);
 
-// CORS configuration - In production, this should be restricted to actual domains
-app.use(cors({ 
-  origin: allowedOrigins, 
-  credentials: true 
+// CORS: allow wildcard subdomains for multi-tenant (e.g. lucknow.dbeos.in)
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow server-to-server
+    // Allow any subdomain of the main domain, plus explicit allowlist
+    const isAllowed = allowedOrigins.some(o => o && origin.startsWith(o)) ||
+      /^https:\/\/[a-z0-9-]+\.dbeos\.in$/.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin) ||
+      /^http:\/\/(?:[a-z0-9-]+\.)?localhost:3000$/.test(origin);
+    callback(null, isAllowed);
+  },
+  credentials: true
 }));
 
 // Trust the reverse proxy (e.g. Railway, Nginx) so rate limiter gets the correct IP
@@ -76,6 +83,7 @@ app.use('/api/drivers', driversRoutes);
 app.use('/api/routes', routesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/superadmin', superadminRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -219,15 +227,8 @@ async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp,
   }
 }
 
-// Wire up location routes
+// Wire up location routes (must come after processHardwareLocation is defined)
 app.use('/api/location', locationRoutes(processHardwareLocation));
-// Register modular routes
-app.use('/api/vehicles', require('./routes/vehicles.routes'));
-app.use('/api/cities', require('./routes/cities.routes'));
-app.use('/api/routes', require('./routes/routes.routes'));
-app.use('/api/drivers', require('./routes/drivers.routes'));
-app.use('/api/users', require('./routes/users.routes'));
-app.use('/api/settings', require('./routes/settings.routes'));
 
 // Basic health check endpoint
 app.get('/', (req, res) => {

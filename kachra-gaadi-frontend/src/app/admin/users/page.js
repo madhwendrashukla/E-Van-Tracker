@@ -93,7 +93,6 @@ export default function UsersPage() {
               <input required type="password" placeholder="Password" className="w-full border rounded-xl p-3"
                 value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
               <select className="w-full border rounded-xl p-3 bg-white" value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
-                <option value="admin">Admin</option>
                 <option value="supervisor">Supervisor</option>
               </select>
               <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors">Create User</button>

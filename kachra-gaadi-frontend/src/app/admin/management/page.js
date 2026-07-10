@@ -3,15 +3,15 @@
 import { useState, useEffect } from "react";
 import api from "../../../utils/axios";
 import MapView from "../../../components/MapView";
+import { getTenantDomainClient } from "../../../utils/tenant";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
 export default function ManagementDashboard() {
-  const [activeTab, setActiveTab] = useState("cities");
+  const [activeTab, setActiveTab] = useState("drivers");
   const [message, setMessage] = useState("");
 
   // Data State
-  const [cities, setCities] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -19,30 +19,40 @@ export default function ManagementDashboard() {
   const [weeklyData, setWeeklyData] = useState({});
   const [analyticsVehicle, setAnalyticsVehicle] = useState("");
   const [analyticsCity, setAnalyticsCity] = useState("");
+  const [brandForm, setBrandForm] = useState({ logo_url: "", brand_color: "#4ade80" });
   
   // Forms State
-  const [cityForm, setCityForm] = useState({ id: null, name: "", code: "", state: "" });
-  const [vehicleForm, setVehicleForm] = useState({ id: null, vehicle_code: "", imei: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" });
-  const [routeForm, setRouteForm] = useState({ id: null, name: "", city_id: "", stops: [] });
+  const [vehicleForm, setVehicleForm] = useState({ id: null, vehicle_code: "", imei: "", driver_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" });
+  const [routeForm, setRouteForm] = useState({ id: null, name: "", stops: [] });
   const [driverForm, setDriverForm] = useState({ id: null, name: "", phone: "", license_number: "", status: "Active" });
-  const [assignmentForm, setAssignmentForm] = useState({ city_id: "", vehicle_id: "", route_id: "" });
+  const [assignmentForm, setAssignmentForm] = useState({ vehicle_id: "", route_id: "" });
 
   const fetchData = async () => {
     try {
-      const [citiesRes, vehiclesRes, routesRes, driversRes, settingsRes] = await Promise.all([
-        api.get('/api/cities'),
-        api.get('/api/vehicles'),
-        api.get('/api/routes'),
-        api.get('/api/drivers'),
-        api.get('/api/settings')
-      ]);
-      if (citiesRes.data.success) setCities(citiesRes.data.data);
-      if (vehiclesRes.data.success) setVehicles(vehiclesRes.data.data);
-      if (routesRes.data.success) setRoutes(routesRes.data.data);
-      if (driversRes.data.success) setDrivers(driversRes.data.data);
-      if (settingsRes.data.success) setSettings(settingsRes.data.data);
+      // Fetch each resource independently so one failure doesn't block others
+      api.get('/api/vehicles').then(res => { if (res.data.success) setVehicles(res.data.data) }).catch(err => console.error("Failed to load vehicles", err));
+      api.get('/api/routes').then(res => { if (res.data.success) setRoutes(res.data.data) }).catch(err => console.error("Failed to load routes", err));
+      api.get('/api/drivers').then(res => { if (res.data.success) setDrivers(res.data.data) }).catch(err => console.error("Failed to load drivers", err));
+      api.get('/api/settings').then(res => { if (res.data.success) setSettings(res.data.data) }).catch(err => console.error("Failed to load settings", err));
+      
+      const domain = getTenantDomainClient();
+      if (domain) {
+        try {
+          const cityRes = await api.get(`/api/cities/by-domain/${domain}`);
+          if (cityRes.data.success) {
+            setBrandForm({
+              logo_url: cityRes.data.data.logo_url || "",
+              brand_color: cityRes.data.data.brand_color || "#4ade80"
+            });
+          }
+        } catch (err) {
+          if (err.response?.status !== 404) {
+             console.warn('Failed to load branding', err.message);
+          }
+        }
+      }
     } catch (err) {
-      console.error("Failed to load data", err);
+      console.error("Failed to execute data fetches", err);
     }
   };
 
@@ -185,14 +195,14 @@ export default function ManagementDashboard() {
   };
 
   const handleSaveRoute = async () => {
-    if (!routeForm.city_id || !routeForm.name) return showMessage("Please select a city and enter route name.", true);
+    if (!routeForm.name) return showMessage("Please enter route name.", true);
     if (routeForm.stops.length < 2) return showMessage("Please add at least 2 stops on the map.", true);
 
     try {
       let res;
       if (routeForm.id) {
-        // Update name/city
-        await api.put(`/api/routes/${routeForm.id}`, { name: routeForm.name, city_id: routeForm.city_id });
+        // Update name
+        await api.put(`/api/routes/${routeForm.id}`, { name: routeForm.name });
         // Update stops
         res = await api.post(`/api/routes/${routeForm.id}/stops`, { stops: routeForm.stops });
       } else {
@@ -201,7 +211,7 @@ export default function ManagementDashboard() {
       
       if (res.data.success) {
         showMessage("Route saved successfully!");
-        setRouteForm({ id: null, name: "", city_id: "", stops: [] });
+        setRouteForm({ id: null, name: "", stops: [] });
         fetchData();
       } else {
         showMessage("Failed to save route.", true);
@@ -217,7 +227,7 @@ export default function ManagementDashboard() {
       const res = await api.delete(`/api/routes/${id}`);
       if (res.data.success) {
         showMessage("Route deleted.");
-        setRouteForm({ id: null, name: "", city_id: "", stops: [] });
+        setRouteForm({ id: null, name: "", stops: [] });
         fetchData();
       }
     } catch (err) { showMessage("Error deleting route.", true); }
@@ -227,7 +237,6 @@ export default function ManagementDashboard() {
     setRouteForm({
       id: route.id,
       name: route.name,
-      city_id: route.city_id,
       stops: [...route.stops].sort((a,b) => a.stop_order - b.stop_order)
     });
   };
@@ -239,7 +248,7 @@ export default function ManagementDashboard() {
       const res = await api.put(`/api/vehicles/${assignmentForm.vehicle_id}/route`, { route_id: assignmentForm.route_id });
       if (res.data.success) {
         showMessage("Route assigned successfully!");
-        setAssignmentForm({ city_id: "", vehicle_id: "", route_id: "" });
+        setAssignmentForm({ vehicle_id: "", route_id: "" });
         fetchData();
       }
     } catch (err) { showMessage("Error assigning route.", true); }
@@ -254,6 +263,18 @@ export default function ManagementDashboard() {
         fetchData();
       }
     } catch (err) { showMessage("Error updating setting.", true); }
+  };
+
+  // --- Branding ---
+  const handleSaveBrand = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.put('/api/cities/brand', brandForm);
+      if (res.data.success) {
+        showMessage("Brand settings updated successfully!");
+        setTimeout(() => window.location.reload(), 1500); // reload to see new colors
+      }
+    } catch (err) { showMessage("Error updating brand.", true); }
   };
 
   const TabButton = ({ id, icon, label }) => (
@@ -291,55 +312,18 @@ export default function ManagementDashboard() {
             
             {/* Tabs */}
             <div className="flex border-b border-gray-100 bg-white overflow-x-auto">
-              <TabButton id="cities" label="Cities" icon={<span>🏙️</span>} />
               <TabButton id="drivers" label="Drivers" icon={<span>👨‍✈️</span>} />
               <TabButton id="vehicles" label="Vehicles" icon={<span>🚛</span>} />
               <TabButton id="routes" label="Routes & Stops" icon={<span>🗺️</span>} />
               <TabButton id="assignment" label="Assignments" icon={<span>🔗</span>} />
               <TabButton id="settings" label="Settings" icon={<span>⚙️</span>} />
               <TabButton id="analytics" label="Analytics" icon={<span>📈</span>} />
+              <TabButton id="branding" label="Branding" icon={<span>🎨</span>} />
             </div>
 
             <div className="p-4 md:p-8 flex-1 bg-gray-50/30">
               
-              {/* TAB: CITIES */}
-              {activeTab === "cities" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit">
-                    <h3 className="text-xl font-bold text-gray-800 mb-4">{cityForm.id ? "Edit City" : "Add City"}</h3>
-                    <form onSubmit={handleSaveCity} className="space-y-4">
-                      <input required type="text" placeholder="Name (e.g. Lucknow)" className="w-full border rounded-xl p-3"
-                        value={cityForm.name} onChange={e => setCityForm({...cityForm, name: e.target.value})} />
-                      <input required type="text" placeholder="Code (e.g. LKO)" className="w-full border rounded-xl p-3 uppercase"
-                        value={cityForm.code} onChange={e => setCityForm({...cityForm, code: e.target.value.toUpperCase()})} />
-                      <input type="text" placeholder="State (Optional)" className="w-full border rounded-xl p-3"
-                        value={cityForm.state} onChange={e => setCityForm({...cityForm, state: e.target.value})} />
-                      <div className="flex gap-2">
-                        <button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors">{cityForm.id ? "Update" : "Save"}</button>
-                        {cityForm.id && <button type="button" onClick={() => setCityForm({ id: null, name: "", code: "", state: "" })} className="px-4 bg-gray-200 text-gray-700 rounded-xl font-bold">Cancel</button>}
-                      </div>
-                    </form>
-                  </div>
-                  
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left">Code</th><th className="px-6 py-3 text-left">Name</th><th className="px-6 py-3">Actions</th></tr></thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {cities.map(c => (
-                          <tr key={c.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 font-bold">{c.code}</td>
-                            <td className="px-6 py-4">{c.name}</td>
-                            <td className="px-6 py-4 text-center">
-                              <button onClick={() => setCityForm(c)} className="text-blue-500 hover:text-blue-700 mx-2">Edit</button>
-                              <button onClick={() => handleDeleteCity(c.id)} className="text-red-500 hover:text-red-700">Delete</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              {/* TAB: CITIES removed — managed by Superadmin */}
 
               {/* TAB: DRIVERS */}
               {activeTab === "drivers" && (
@@ -392,11 +376,7 @@ export default function ManagementDashboard() {
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit">
                     <h3 className="text-xl font-bold text-gray-800 mb-4">{vehicleForm.id ? "Edit Vehicle" : "Add Vehicle"}</h3>
                     <form onSubmit={handleSaveVehicle} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <select required className="w-full border rounded-xl p-3 bg-gray-50" value={vehicleForm.city_id} onChange={e => setVehicleForm({...vehicleForm, city_id: e.target.value})}>
-                          <option value="" disabled>Select City</option>
-                          {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                      <div className="grid grid-cols-1 gap-4">
                         <select className="w-full border rounded-xl p-3 bg-gray-50" value={vehicleForm.driver_id || ""} onChange={e => setVehicleForm({...vehicleForm, driver_id: e.target.value})}>
                           <option value="">No Driver</option>
                           {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -426,7 +406,7 @@ export default function ManagementDashboard() {
                       </div>
                       <div className="flex gap-2">
                         <button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors">{vehicleForm.id ? "Update" : "Save"}</button>
-                        {vehicleForm.id && <button type="button" onClick={() => setVehicleForm({ id: null, vehicle_code: "", imei: "", driver_id: "", city_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" })} className="px-4 bg-gray-200 text-gray-700 rounded-xl font-bold">Cancel</button>}
+                        {vehicleForm.id && <button type="button" onClick={() => setVehicleForm({ id: null, vehicle_code: "", imei: "", driver_id: "", route_id: "", license_plate: "", battery_level: 100, status: "Active" })} className="px-4 bg-gray-200 text-gray-700 rounded-xl font-bold">Cancel</button>}
                       </div>
                     </form>
                   </div>
@@ -461,14 +441,10 @@ export default function ManagementDashboard() {
                   <div className="w-full lg:w-1/3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col max-h-[700px]">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-xl font-bold text-gray-800">{routeForm.id ? "Edit Route" : "Build Route"}</h3>
-                      {routeForm.id && <button onClick={() => setRouteForm({ id: null, name: "", city_id: "", stops: [] })} className="text-xs text-blue-500">Create New</button>}
+                      {routeForm.id && <button onClick={() => setRouteForm({ id: null, name: "", stops: [] })} className="text-xs text-blue-500">Create New</button>}
                     </div>
                     
                     <div className="space-y-4 mb-4">
-                      <select className="w-full border rounded-xl p-3 bg-gray-50" value={routeForm.city_id} onChange={e => setRouteForm({...routeForm, city_id: e.target.value})}>
-                        <option value="" disabled>Select City</option>
-                        {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
                       <input type="text" placeholder="Route Name" className="w-full border rounded-xl p-3 bg-gray-50"
                         value={routeForm.name} onChange={e => setRouteForm({...routeForm, name: e.target.value})} />
                     </div>
@@ -534,17 +510,13 @@ export default function ManagementDashboard() {
                 <div className="max-w-2xl bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Assign Route</h3>
                   <form onSubmit={handleAssignRoute} className="space-y-4">
-                    <select required className="w-full border rounded-xl p-3" value={assignmentForm.city_id} onChange={e => setAssignmentForm({ city_id: e.target.value, vehicle_id: "", route_id: "" })}>
-                      <option value="" disabled>1. Select City</option>
-                      {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    <select required className="w-full border rounded-xl p-3" value={assignmentForm.vehicle_id} onChange={e => setAssignmentForm({...assignmentForm, vehicle_id: e.target.value})}>
+                      <option value="" disabled>1. Select Vehicle</option>
+                      {vehicles.map(v => <option key={v.id} value={v.id}>{v.vehicle_code}</option>)}
                     </select>
-                    <select required className="w-full border rounded-xl p-3" disabled={!assignmentForm.city_id} value={assignmentForm.vehicle_id} onChange={e => setAssignmentForm({...assignmentForm, vehicle_id: e.target.value})}>
-                      <option value="" disabled>2. Select Vehicle</option>
-                      {vehicles.filter(v => v.city_id === assignmentForm.city_id).map(v => <option key={v.id} value={v.id}>{v.vehicle_code}</option>)}
-                    </select>
-                    <select required className="w-full border rounded-xl p-3" disabled={!assignmentForm.city_id} value={assignmentForm.route_id} onChange={e => setAssignmentForm({...assignmentForm, route_id: e.target.value})}>
-                      <option value="" disabled>3. Select Route</option>
-                      {routes.filter(r => r.city_id === assignmentForm.city_id).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    <select required className="w-full border rounded-xl p-3" value={assignmentForm.route_id} onChange={e => setAssignmentForm({...assignmentForm, route_id: e.target.value})}>
+                      <option value="" disabled>2. Select Route</option>
+                      {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                     <button type="submit" disabled={!assignmentForm.vehicle_id || !assignmentForm.route_id} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl disabled:opacity-50">Assign</button>
                   </form>
@@ -556,26 +528,10 @@ export default function ManagementDashboard() {
                   
                   <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white p-4 rounded-xl border shadow-sm">
                     <div className="flex-1">
-                      <label className="text-xs font-bold text-gray-500 mb-1 block">City</label>
-                      <select 
-                        className="w-full border rounded-xl p-3" 
-                        value={analyticsCity}
-                        onChange={(e) => {
-                          setAnalyticsCity(e.target.value);
-                          setAnalyticsVehicle("");
-                          setWeeklyData({});
-                        }}>
-                        <option value="">Select a city...</option>
-                        {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-
-                    <div className="flex-1">
                       <label className="text-xs font-bold text-gray-500 mb-1 block">Vehicle</label>
                       <select 
                         className="w-full border rounded-xl p-3" 
                         value={analyticsVehicle}
-                        disabled={!analyticsCity}
                         onChange={async (e) => {
                           const code = e.target.value;
                           setAnalyticsVehicle(code);
@@ -583,7 +539,7 @@ export default function ManagementDashboard() {
                           fetchAnalytics(code);
                         }}>
                         <option value="">Select a vehicle...</option>
-                        {vehicles.filter(v => v.city_id === analyticsCity).map(v => <option key={v.id} value={v.vehicle_code}>{v.vehicle_code}</option>)}
+                        {vehicles.map(v => <option key={v.id} value={v.vehicle_code}>{v.vehicle_code}</option>)}
                       </select>
                     </div>
                   </div>
@@ -613,6 +569,51 @@ export default function ManagementDashboard() {
                     );
                   })()}
                   {!analyticsVehicle && <p className="text-gray-500">Select a city and vehicle to view data.</p>}
+                </div>
+              )}
+
+              {/* TAB: BRANDING */}
+              {activeTab === "branding" && (
+                <div className="max-w-xl bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">City Branding</h3>
+                  <p className="text-sm text-gray-500 mb-6">Customize the look and feel of your tracking page for citizens.</p>
+                  
+                  <form onSubmit={handleSaveBrand} className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Logo URL</label>
+                      <input 
+                        type="url" 
+                        required
+                        className="w-full border rounded-xl p-3 bg-gray-50" 
+                        placeholder="https://example.com/logo.png"
+                        value={brandForm.logo_url}
+                        onChange={(e) => setBrandForm({...brandForm, logo_url: e.target.value})}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">Provide a direct link to an image (PNG, SVG, or JPG). Transparent background recommended.</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Primary Brand Color</label>
+                      <div className="flex items-center gap-4">
+                        <input 
+                          type="color" 
+                          className="w-14 h-14 rounded cursor-pointer border-0 p-0" 
+                          value={brandForm.brand_color}
+                          onChange={(e) => setBrandForm({...brandForm, brand_color: e.target.value})}
+                        />
+                        <input 
+                          type="text" 
+                          className="flex-1 border rounded-xl p-3 bg-gray-50 font-mono" 
+                          value={brandForm.brand_color}
+                          onChange={(e) => setBrandForm({...brandForm, brand_color: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    
+                    <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors">
+                      Save & Apply Brand
+                    </button>
+                  </form>
                 </div>
               )}
 

@@ -7,6 +7,7 @@ import MapView from "../../../components/MapView";
 import RouteMonitoring from "../../../components/RouteMonitoring";
 import { use } from "react";
 import api from "../../../utils/axios";
+import { getTenantDomainClient, subdomainToDisplayName } from "../../../utils/tenant";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
@@ -33,6 +34,29 @@ export default function TrackVehicle({ params }) {
   const [secondsAgo, setSecondsAgo] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [activeTab, setActiveTab] = useState('Route');
+  const [cityStatus, setCityStatus] = useState("active");
+  const [vehicleNotFound, setVehicleNotFound] = useState(false);
+  const [tenantSubdomain, setTenantSubdomain] = useState(null);
+  const [logoUrl, setLogoUrl] = useState("/logo.svg");
+  const [brandColor, setBrandColor] = useState("#38763b");
+
+  useEffect(() => {
+    const domain = getTenantDomainClient();
+    if (domain) {
+      setTenantSubdomain(domain);
+      api.get(`/api/cities/by-domain/${domain}`)
+        .then(res => {
+          if (res.data.success) {
+            setCityStatus(res.data.data.status);
+            if (res.data.data.logo_url) setLogoUrl(res.data.data.logo_url);
+            if (res.data.data.brand_color) setBrandColor(res.data.data.brand_color);
+          }
+        })
+        .catch(err => {
+          setCityStatus("inactive");
+        });
+    }
+  }, []);
 
   // Haversine formula for distance
   const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
@@ -55,6 +79,13 @@ export default function TrackVehicle({ params }) {
     socket.on("connect", () => {
       setIsConnected(true);
       // Join specific vehicle room
+      socket.emit("join_room", `vehicle-${vehicleCode.toUpperCase()}`);
+    });
+    
+    // Add reconnect listener to handle backend restarts
+    socket.io.on("reconnect", () => {
+      console.log("Socket reconnected, rejoining room...");
+      setIsConnected(true);
       socket.emit("join_room", `vehicle-${vehicleCode.toUpperCase()}`);
     });
 
@@ -81,9 +112,16 @@ export default function TrackVehicle({ params }) {
         const json = res.data;
         if (json.success && json.data) {
           setVehicleDetails(json.data);
+          setVehicleNotFound(false);
         }
       })
-      .catch(err => console.error("Error fetching vehicle", err));
+      .catch(err => {
+        if (err.response?.status === 404) {
+          setVehicleNotFound(true);
+        } else {
+          console.error("Error fetching vehicle:", err.message);
+        }
+      });
 
     // Fetch route and stops
     api.get(`/api/vehicles/${vehicleCode}/route`)
@@ -96,7 +134,9 @@ export default function TrackVehicle({ params }) {
         }
       })
       .catch(err => {
-        console.error("Error fetching route", err);
+        if (err.response?.status !== 404) {
+          console.error("Error fetching route:", err.message);
+        }
         setRouteData(false);
       });
 
@@ -116,7 +156,11 @@ export default function TrackVehicle({ params }) {
           });
         }
       })
-      .catch(err => console.error("Error fetching location history", err));
+      .catch(err => {
+        if (err.response?.status !== 404) {
+          console.error("Error fetching location history:", err.message);
+        }
+      });
 
     // Fetch checkpoint stats
     api.get(`/api/vehicles/${vehicleCode}/stops/today`)
@@ -237,19 +281,51 @@ export default function TrackVehicle({ params }) {
     );
   };
 
+  if (cityStatus === "inactive") {
+    return (
+      <main className="h-screen w-screen relative flex flex-col items-center justify-center bg-[#f3f5f9]">
+        <div className="z-10 w-full max-w-[460px] px-4 text-center">
+          <div className="bg-white rounded-[32px] shadow-lg p-10 flex flex-col items-center border border-gray-100">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mb-4">⏸️</div>
+            <h1 className="text-2xl font-black text-gray-800 mb-2">Tracking Unavailable</h1>
+            <p className="text-gray-500 text-sm">
+              The tracking service for <strong>{subdomainToDisplayName(tenantSubdomain)}</strong> is currently inactive. Please check back later.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (vehicleNotFound) {
+    return (
+      <main className="h-screen w-screen relative flex flex-col items-center justify-center bg-[#f3f5f9]">
+        <div className="z-10 w-full max-w-[460px] px-4 text-center">
+          <div className="bg-white rounded-[32px] shadow-lg p-10 flex flex-col items-center border border-gray-100">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-3xl mb-4">🚐</div>
+            <h1 className="text-2xl font-black text-gray-800 mb-2">Vehicle Not Found</h1>
+            <p className="text-gray-500 text-sm">
+              We couldn't find a vehicle with the code <strong>{vehicleCode.toUpperCase()}</strong>. Please double-check the URL and try again.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-100 font-sans">
       
       {/* TOP BAR */}
-      <header className="bg-[#38763b] text-white flex items-center justify-between px-6 py-3 z-20 shadow-md shrink-0">
+      <header className="text-white flex items-center justify-between px-6 py-3 z-20 shadow-md shrink-0" style={{ backgroundColor: brandColor }}>
         <div className="flex items-center gap-4">
           <div className="bg-white p-1.5 rounded-lg shadow-sm">
-            <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain" />
+            <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-bold tracking-tight">Live Tracking</h1>
-              <div className="bg-[#2d602f] text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1.5 font-medium border border-[#4a8a4d]">
+              <div className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1.5 font-medium border border-white/20" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
                 <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-[#4ade80] animate-pulse' : 'bg-red-500'}`}></div>
                 {isConnected ? 'Live' : 'Offline'}
               </div>
@@ -264,7 +340,7 @@ export default function TrackVehicle({ params }) {
           </div>
           <button 
             onClick={() => setIsMonitoringOpen(true)}
-            className="border border-[#559558] hover:bg-[#2d602f] transition-colors px-4 py-1.5 rounded-md flex items-center gap-2 text-sm font-semibold"
+            className="border border-white/20 hover:bg-black/10 transition-colors px-4 py-1.5 rounded-md flex items-center gap-2 text-sm font-semibold"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
             Details
