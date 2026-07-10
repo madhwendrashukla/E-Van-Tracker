@@ -122,7 +122,7 @@ const CreateCityModal = ({ onClose, onCreated }) => {
                 <input name="subdomain" required value={form.subdomain} onChange={handleChange}
                   className="flex-1 bg-transparent text-white px-4 py-2.5 text-sm focus:outline-none"
                   placeholder="lucknow" />
-                <span className="text-slate-500 text-xs pr-3 font-mono">.evantracker.in</span>
+                <span className="text-slate-500 text-xs pr-3 font-mono">.mybuildspace.in</span>
               </div>
             </div>
             <div>
@@ -298,12 +298,12 @@ export default function SuperadminPage() {
                       </td>
                       <td className="px-5 py-4">
                         <a
-                          href={`https://${city.subdomain}.evantracker.in`}
+                          href={`https://${city.subdomain}.mybuildspace.in`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-indigo-400 hover:text-indigo-300 font-mono text-xs transition-colors block mb-1"
                         >
-                          {city.subdomain}.evantracker.in ↗
+                          {city.subdomain}.mybuildspace.in ↗
                         </a>
                         {city.custom_domain && (
                           <a

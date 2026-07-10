@@ -10,7 +10,7 @@ Today, E-Van Tracker is a **single-tenant** app: one deployment, one database, a
 
 - A **Superadmin** (you) onboards new city clients.
 - Each city gets its **own isolated login and dashboard** — vehicles, drivers, and routes management scoped only to that city.
-- Each city gets its **own subdomain** (e.g. `lucknow.evantracker.in`, `kanpur.evantracker.in`).
+- Each city gets its **own subdomain** (e.g. `lucknow.mybuildspace.in`, `kanpur.mybuildspace.in`).
 - Cities cannot see or touch each other's data under any circumstance.
 
 This PRD defines the target architecture, data model changes, role model, subdomain routing strategy, and a phased rollout plan.
@@ -66,13 +66,13 @@ Your current report (Section 18) already defines this hierarchy — good news, y
 ### 5.1 How it should work
 
 ```
-evantracker.in                  → Marketing/landing page + Superadmin login
-app.evantracker.in/superadmin   → Superadmin dashboard (all cities)
-lucknow.evantracker.in          → Lucknow citizen search + Lucknow admin login
-lucknow.evantracker.in/admin    → Lucknow City Admin dashboard
-lucknow.evantracker.in/track/LKO-001   → Citizen tracking (Lucknow-branded)
-kanpur.evantracker.in           → Same, scoped to Kanpur
-kanpur.evantracker.in/admin     → Kanpur City Admin dashboard
+mybuildspace.in                  → Marketing/landing page + Superadmin login
+app.mybuildspace.in/superadmin   → Superadmin dashboard (all cities)
+lucknow.mybuildspace.in          → Lucknow citizen search + Lucknow admin login
+lucknow.mybuildspace.in/admin    → Lucknow City Admin dashboard
+lucknow.mybuildspace.in/track/LKO-001   → Citizen tracking (Lucknow-branded)
+kanpur.mybuildspace.in           → Same, scoped to Kanpur
+kanpur.mybuildspace.in/admin     → Kanpur City Admin dashboard
 ```
 
 Each city's admin never needs to "select their city" — the subdomain **is** the tenant context. This also means when you sell to a new city, you can hand them a clean branded-feeling URL, which matters when pitching to a municipal client.
@@ -81,9 +81,9 @@ Each city's admin never needs to "select their city" — the subdomain **is** th
 
 **Good news on the DNS/panel question:** because this uses **one wildcard entry**, you do this setup **once, ever** — not per city. There's no ongoing "go into a DNS panel every time I sign a new city" step:
 
-1. **One-time**: add a single `*.evantracker.in` CNAME record at your domain registrar (GoDaddy, Namecheap, whichever you bought the domain through), pointing at Vercel. You do this once from that registrar's panel.
-2. **One-time**: add `evantracker.in` and `*.evantracker.in` as domains on your existing Vercel frontend project. Vercel issues wildcard SSL automatically.
-3. **From then on**: creating a new city (Section 7) just means setting a `subdomain` value in your database (e.g. `kanpur`) — `kanpur.evantracker.in` works immediately, no DNS panel visit needed, no new Vercel deployment. The Superadmin dashboard is the only "panel" needed for day-to-day onboarding.
+1. **One-time**: add a single `*.mybuildspace.in` CNAME record at your domain registrar (GoDaddy, Namecheap, whichever you bought the domain through), pointing at Vercel. You do this once from that registrar's panel.
+2. **One-time**: add `mybuildspace.in` and `*.mybuildspace.in` as domains on your existing Vercel frontend project. Vercel issues wildcard SSL automatically.
+3. **From then on**: creating a new city (Section 7) just means setting a `subdomain` value in your database (e.g. `kanpur`) — `kanpur.mybuildspace.in` works immediately, no DNS panel visit needed, no new Vercel deployment. The Superadmin dashboard is the only "panel" needed for day-to-day onboarding.
 
 If you'd later want cities to bring their **own custom domain** (e.g. a city's own `tracker.lucknowcity.gov.in`), that *would* need per-city DNS work (their IT adds a CNAME, you verify it in Vercel) — that's the Phase 5 item, not needed for launch.
 
@@ -92,10 +92,10 @@ If you'd later want cities to bring their **own custom domain** (e.g. a city's o
 ```js
 // Pseudocode — resolve city from subdomain
 export function middleware(req) {
-  const host = req.headers.get('host'); // e.g. "lucknow.evantracker.in"
+  const host = req.headers.get('host'); // e.g. "lucknow.mybuildspace.in"
   const subdomain = host.split('.')[0];
 
-  if (subdomain === 'app' || subdomain === 'www' || host === 'evantracker.in') {
+  if (subdomain === 'app' || subdomain === 'www' || host === 'mybuildspace.in') {
     // superadmin / marketing — no city scoping
     return NextResponse.next();
   }
@@ -200,7 +200,7 @@ This is mostly **your existing `/admin/management` UI**, scoped by the enforceme
 
 ## 9. Citizen-Facing Pages
 
-- Citizen search/tracking page moves from a single shared domain to being served per-subdomain: `lucknow.evantracker.in/track/LKO-001`.
+- Citizen search/tracking page moves from a single shared domain to being served per-subdomain: `lucknow.mybuildspace.in/track/LKO-001`.
 - If a city's `status` is `inactive`, the citizen page should show a neutral "tracking temporarily unavailable" message rather than an error — this matters if a city's contract lapses but you don't want a broken-looking public page.
 - Phase 2 (not required for launch): let each City Admin upload a logo/city name shown on their citizen page, for a more "branded for them" feel when selling.
 
@@ -234,7 +234,7 @@ This is mostly **your existing `/admin/management` UI**, scoped by the enforceme
 | Question | Decision |
 |---|---|
 | Billing/subscriptions | **Out of scope entirely.** Handled outside the app. App only has an active/inactive switch. |
-| DNS/subdomain setup | Wildcard DNS (`*.evantracker.in`) configured **once** at the registrar's panel. No per-city DNS work afterward — new cities go live by setting a `subdomain` value in the database. |
+| DNS/subdomain setup | Wildcard DNS (`*.mybuildspace.in`) configured **once** at the registrar's panel. No per-city DNS work afterward — new cities go live by setting a `subdomain` value in the database. |
 | Data on deactivation | **Keep indefinitely.** No auto-delete. Data is only removed if the Superadmin manually deletes the city. |
 | Supervisor accounts per city | **Unlimited.** No cap in v1. |
 
@@ -242,7 +242,7 @@ This removes billing entirely from the build — the `cities` table no longer ne
 
 ### Still worth a quick decision before build starts:
 - **City deletion**: since data is kept until manually deleted, do you want a hard delete (gone forever) or a soft delete (hidden from Superadmin's list but recoverable)? Soft delete is safer and barely more work — worth doing by default.
-- **Root domain registrar**: confirm which registrar/DNS provider `evantracker.in` (or your final domain name) is on, so the one-time wildcard CNAME step can be scoped precisely.
+- **Root domain registrar**: confirm which registrar/DNS provider `mybuildspace.in` (or your final domain name) is on, so the one-time wildcard CNAME step can be scoped precisely.
 
 ---
 

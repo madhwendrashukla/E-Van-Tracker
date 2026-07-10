@@ -21,7 +21,7 @@ function getTenantDomain(host) {
   // localhost or IP addresses = no tenant
   if (hostname === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) return null;
 
-  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'evantracker.in';
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'mybuildspace.in';
 
   if (hostname === baseDomain) return null;
 

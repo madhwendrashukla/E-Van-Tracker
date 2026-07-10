@@ -10,7 +10,7 @@ This guide covers the end-to-end flow from the perspective of all user roles: Su
 
 - **Superadmin**: The platform owner (God-mode). Manages the platform globally. Creates new "Cities" (tenants) and monitors overall platform KPIs.
 - **City Admin**: The administrator for a specific city (e.g., Lucknow). Manages their city's specific fleet, routes, drivers, and monitors real-time active vehicles.
-- **Citizen (Public)**: End users who visit a city-specific subdomain (e.g., `lko.evantracker.in`) to view the real-time location of waste collection vehicles in their area.
+- **Citizen (Public)**: End users who visit a city-specific subdomain (e.g., `lko.mybuildspace.in`) to view the real-time location of waste collection vehicles in their area.
 - **Driver (Hardware)**: Waste collection vehicle drivers whose vehicles are equipped with GPS tracking modules that continuously ping the backend server with their live coordinates.
 
 ---
@@ -20,7 +20,7 @@ This guide covers the end-to-end flow from the perspective of all user roles: Su
 The Superadmin oversees the entire multi-tenant architecture. 
 
 ### Accessing the Superadmin Dashboard
-1. Go to the main platform domain (e.g., `app.evantracker.in` or `localhost:3000/superadmin`).
+1. Go to the main platform domain (e.g., `app.mybuildspace.in` or `localhost:3000/superadmin`).
 2. Log in using your Superadmin credentials (seeded via DB or environment variables).
 
 ### Onboarding a New City
@@ -29,7 +29,7 @@ To bring a new city onto the platform:
 2. Enter the city details:
    - **Name**: e.g., "Lucknow"
    - **Code**: e.g., "LKO"
-   - **Subdomain**: e.g., "lko" (This is crucial: citizens will use `lko.evantracker.in` or `lko.localhost:3000`)
+   - **Subdomain**: e.g., "lko" (This is crucial: citizens will use `lko.mybuildspace.in` or `lko.localhost:3000`)
    - **Contact Name & Email**: e.g., "Ramesh", "ramesh@lucknow.gov.in"
 3. Submit the form. 
    - The backend creates the city as an isolated tenant.
@@ -42,7 +42,7 @@ To bring a new city onto the platform:
 The City Admin manages the operations strictly for their designated city.
 
 ### Accepting the Invite & Logging In
-1. The City Admin clicks the invite link sent via email (e.g., `lko.evantracker.in/accept-invite?token=xyz`).
+1. The City Admin clicks the invite link sent via email (e.g., `lko.mybuildspace.in/accept-invite?token=xyz`).
 2. They are prompted to **Set a Password**.
 3. Once set, they can log into their city's admin dashboard (e.g., `lko.localhost:3000/admin`).
 
@@ -74,7 +74,7 @@ The vehicles broadcast their location in real-time.
 
 Citizens can track the vans in their city without needing to log in.
 
-1. A citizen visits their city's specific subdomain (e.g., `lko.evantracker.in`).
+1. A citizen visits their city's specific subdomain (e.g., `lko.mybuildspace.in`).
 2. The frontend automatically detects the `lko` subdomain and styles the page using Lucknow's custom branding (if configured).
 3. The frontend fetches the active vehicles specifically for Lucknow using the `x-tenant-domain` header.
 4. The citizen sees a live, auto-updating map displaying all active waste collection vans in their city, along with ETAs for upcoming route stops.

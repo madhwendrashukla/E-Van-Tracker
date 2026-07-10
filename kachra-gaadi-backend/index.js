@@ -46,13 +46,13 @@ const allowedOrigins = [
   'https://e-van-tracker.vercel.app'
 ].filter(Boolean);
 
-// CORS: allow wildcard subdomains for multi-tenant (e.g. lucknow.dbeos.in)
+// CORS: allow wildcard subdomains for multi-tenant (e.g. lucknow.mybuildspace.in)
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // allow server-to-server
     // Allow any subdomain of the main domain, plus explicit allowlist
     const isAllowed = allowedOrigins.some(o => o && origin.startsWith(o)) ||
-      /^https:\/\/[a-z0-9-]+\.dbeos\.in$/.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.mybuildspace\.in$/.test(origin) ||
       /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin) ||
       /^http:\/\/(?:[a-z0-9-]+\.)?localhost:3000$/.test(origin);
     callback(null, isAllowed);

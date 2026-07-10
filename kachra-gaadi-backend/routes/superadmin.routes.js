@@ -121,7 +121,7 @@ router.post('/cities', async (req, res) => {
 
       if (!invError) {
         invitation = { token, expires_at: expiresAt, email: contact_email };
-        // In production: send email with link like https://app.evantracker.in/accept-invite?token={token}
+        // In production: send email with link like https://mybuildspace.in/accept-invite?token={token}
         console.log(`[INVITE] City: ${name} | Email: ${contact_email} | Token: ${token}`);
       }
     }

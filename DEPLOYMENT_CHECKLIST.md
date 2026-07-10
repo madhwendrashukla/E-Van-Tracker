@@ -21,7 +21,7 @@ The frontend will call `localhost` from Vercel servers, which obviously don't ha
 | Key | Value |
 |-----|-------|
 | `NEXT_PUBLIC_BACKEND_URL` | `https://your-railway-url.railway.app` (or your custom domain) |
-| `NEXT_PUBLIC_BASE_DOMAIN` | `evantracker.in` |
+| `NEXT_PUBLIC_BASE_DOMAIN` | `mybuildspace.in` |
 | `JWT_SECRET` | Same value as your backend `.env` |
 
 ---
@@ -35,17 +35,17 @@ Your backend `.env` has new values that **aren't on Railway yet** — specifical
 | `JWT_SECRET` | `e73ae65a28d9f887d...` (your new rotated value from `.env`) |
 | `DRIVER_API_KEY` | `99891cc2190ef191...` (your new rotated value from `.env`) |
 | `NODE_ENV` | `production` |
-| `FRONTEND_URL` | `https://evantracker.in` |
+| `FRONTEND_URL` | `https://mybuildspace.in` |
 
 ---
 
 ### BLOCKER 3: Wildcard DNS Not Configured
-Without `*.evantracker.in → Vercel`, city subdomains won't resolve. New cities will get a DNS error page.
+Without `*.mybuildspace.in → Vercel`, city subdomains won't resolve. New cities will get a DNS error page.
 
 **Fix (one-time, 5 minutes):**
-1. Go to your domain registrar (where `evantracker.in` was bought)
+1. Go to your domain registrar (where `mybuildspace.in` was bought)
 2. Add a **CNAME record**: `*` → `cname.vercel-dns.com`
-3. In Vercel Dashboard → Your Project → Domains → Add `*.evantracker.in`
+3. In Vercel Dashboard → Your Project → Domains → Add `*.mybuildspace.in`
 4. Vercel auto-issues wildcard SSL — takes ~5 minutes
 
 After this, any new city you create in Superadmin dashboard will have a working subdomain **immediately, no DNS work needed**.
@@ -108,7 +108,7 @@ Railway auto-deploys from GitHub if connected. Otherwise:
 1. Go to [vercel.com](https://vercel.com) → Your Project
 2. Vercel auto-deploys on push to `main`
 3. Go to **Settings → Environment Variables** — add all vars from Section 1 → BLOCKER 1
-4. Go to **Settings → Domains** — add `*.evantracker.in` and `evantracker.in`
+4. Go to **Settings → Domains** — add `*.mybuildspace.in` and `mybuildspace.in`
 5. Trigger a **redeploy** after adding env vars (Vercel doesn't auto-redeploy for env changes)
 
 ### Step 4: Configure DNS (One Time Only)
@@ -127,9 +127,9 @@ Value: cname.vercel-dns.com
 These are already applied on your Supabase project, so nothing to do. For future reference, the migration files are in `kachra-gaadi-backend/migrations/`.
 
 ### Step 6: Verify First Login
-1. Open `https://evantracker.in/login`
+1. Open `https://mybuildspace.in/login`
 2. Log in with superadmin `madhwendrashukla37@gmail.com`
-3. You should be redirected to `https://evantracker.in/superadmin`
+3. You should be redirected to `https://mybuildspace.in/superadmin`
 4. Create a test city → invite arrives → city admin sets password → city subdomain works
 
 ### Step 7: Build & Release Driver APK
@@ -170,7 +170,7 @@ curl -X POST https://your-backend.railway.app/api/auth/login \
   -d '{"email":"madhwendrashukla37@gmail.com","password":"12345678"}'
 
 # 3. City subdomain resolves
-curl https://lucknow.evantracker.in
+curl https://lucknow.mybuildspace.in
 
 # 4. Hardware ping works (use your real DRIVER_API_KEY)
 curl -X POST https://your-backend.railway.app/api/location \

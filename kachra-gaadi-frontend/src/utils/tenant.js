@@ -15,7 +15,7 @@ export function getTenantDomainClient() {
   
   if (hostname === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) return null;
 
-  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'evantracker.in';
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'mybuildspace.in';
   if (hostname === baseDomain) return null;
 
   const NON_TENANT = ['app', 'www', 'api', 'superadmin'];

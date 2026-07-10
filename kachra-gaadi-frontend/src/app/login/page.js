@@ -58,7 +58,7 @@ export default function LoginPage() {
         } else if (['city_admin', 'admin', 'supervisor'].includes(data.user.role)) {
           // Cross-domain redirection
           const currentHostname = window.location.hostname;
-          const targetDomain = data.user.custom_domain || (data.user.city_subdomain ? `${data.user.city_subdomain}.${process.env.NEXT_PUBLIC_BASE_DOMAIN || 'evantracker.in'}` : null);
+          const targetDomain = data.user.custom_domain || (data.user.city_subdomain ? `${data.user.city_subdomain}.${process.env.NEXT_PUBLIC_BASE_DOMAIN || 'mybuildspace.in'}` : null);
           
           if (targetDomain && currentHostname !== targetDomain) {
             // For local development, if NEXT_PUBLIC_BASE_DOMAIN isn't set, we assume localhost
