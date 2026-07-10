@@ -45,31 +45,24 @@ export default function LoginPage() {
       const data = res.data;
 
       if (data.success) {
-        // Set local cookies so Next.js middleware knows the user is authenticated
-        if (data.accessToken) {
-          document.cookie = `accessToken=${data.accessToken}; path=/; max-age=900; SameSite=Lax; Secure`;
-        }
-        if (data.refreshToken) {
-          document.cookie = `refreshToken=${data.refreshToken}; path=/; max-age=604800; SameSite=Lax; Secure`;
-        }
+        // SECURITY: Tokens are now ONLY stored in HttpOnly cookies set by the backend.
+        // Do NOT set document.cookie here — the browser auto-sends HttpOnly cookies
+        // on every request due to withCredentials:true in axios config.
         
         if (data.user.role === 'superadmin') {
           router.push('/superadmin');
         } else if (['city_admin', 'admin', 'supervisor'].includes(data.user.role)) {
-          // Cross-domain redirection
+          // Cross-domain redirection to the correct city subdomain
           const currentHostname = window.location.hostname;
           const targetDomain = data.user.custom_domain || (data.user.city_subdomain ? `${data.user.city_subdomain}.${process.env.NEXT_PUBLIC_BASE_DOMAIN || 'mybuildspace.in'}` : null);
           
           if (targetDomain && currentHostname !== targetDomain) {
-            // For local development, if NEXT_PUBLIC_BASE_DOMAIN isn't set, we assume localhost
             const isLocal = currentHostname === 'localhost' || currentHostname.endsWith('.localhost') || currentHostname.includes('127.0.0.1');
             const port = window.location.port ? `:${window.location.port}` : '';
             const protocol = window.location.protocol;
-            
             const finalHost = data.user.custom_domain ? data.user.custom_domain : (
               isLocal ? `${data.user.city_subdomain}.localhost` : targetDomain
             );
-
             window.location.href = `${protocol}//${finalHost}${port}/admin`;
           } else {
             router.push('/admin');

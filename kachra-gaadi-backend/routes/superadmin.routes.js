@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 const crypto = require('crypto');
-const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const { authenticateToken, authorizeRole, invalidateCityCache } = require('../middleware/auth');
+const { validateUUID } = require('../middleware/validate');
 
 // All superadmin routes require authentication + superadmin role
 router.use(authenticateToken, authorizeRole('superadmin'));
@@ -141,7 +142,7 @@ router.post('/cities', async (req, res) => {
 });
 
 // ── PUT /api/superadmin/cities/:id — update city metadata ────────────────────
-router.put('/cities/:id', async (req, res) => {
+router.put('/cities/:id', validateUUID, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, code, state, subdomain, custom_domain, contact_name, contact_email, contact_phone } = req.body;
@@ -171,8 +172,8 @@ router.put('/cities/:id', async (req, res) => {
   }
 });
 
-// ── PUT /api/superadmin/cities/:id/status — activate / deactivate ─────────────
-router.put('/cities/:id/status', async (req, res) => {
+// ── PUT /api/superadmin/cities/:id/status — activate / deactivate ─────────────────
+router.put('/cities/:id/status', validateUUID, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -189,6 +190,8 @@ router.put('/cities/:id/status', async (req, res) => {
       .single();
 
     if (error) throw error;
+    // Bust the city status cache so the new status takes effect immediately
+    invalidateCityCache(id);
     res.json({ success: true, data, message: `City ${status === 'active' ? 'activated' : 'deactivated'} successfully.` });
   } catch (error) {
     console.error('Error toggling city status:', error);
@@ -197,7 +200,7 @@ router.put('/cities/:id/status', async (req, res) => {
 });
 
 // ── DELETE /api/superadmin/cities/:id — soft delete a city ───────────────────
-router.delete('/cities/:id', async (req, res) => {
+router.delete('/cities/:id', validateUUID, async (req, res) => {
   try {
     const { id } = req.params;
     const { data, error } = await supabase
@@ -216,7 +219,7 @@ router.delete('/cities/:id', async (req, res) => {
 });
 
 // ── POST /api/superadmin/cities/:id/resend-invite — resend invite to city admin
-router.post('/cities/:id/resend-invite', async (req, res) => {
+router.post('/cities/:id/resend-invite', validateUUID, async (req, res) => {
   try {
     const { id } = req.params;
     const { email } = req.body;

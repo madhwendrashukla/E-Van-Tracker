@@ -1,6 +1,7 @@
 const express = require('express');
 const supabase = require('../config/supabase');
 const env = require('../config/env');
+const { validateCoordinates, sanitizeDomain } = require('../middleware/validate');
 
 module.exports = (processHardwareLocation) => {
   const router = express.Router();
@@ -14,8 +15,8 @@ module.exports = (processHardwareLocation) => {
     next();
   };
 
-  // Location POST endpoint (from Flutter app)
-  router.post('/', requireApiKey, async (req, res) => {
+  // Location POST endpoint (from Flutter app or hardware) — requires API key + valid coordinates
+  router.post('/', requireApiKey, validateCoordinates, async (req, res) => {
     try {
       const { vehicle_id, lat, lng, speed, timestamp, source } = req.body;
       

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 const { authenticateToken, authorizeRole, requireCityScope, checkCityActive } = require('../middleware/auth');
+const { sanitizeDomain } = require('../middleware/validate');
 
 // ── GET /api/cities — public, filtered by active + not deleted ────────────────
 router.get('/', async (req, res) => {
@@ -25,7 +26,12 @@ router.get('/', async (req, res) => {
 // Called by the frontend middleware/tenant resolver on every request
 router.get('/by-domain/:domain', async (req, res) => {
   try {
-    const { domain } = req.params;
+    // SECURITY: Sanitize domain before using in Supabase .or() to prevent filter injection
+    const domain = sanitizeDomain(req.params.domain);
+    if (!domain) {
+      return res.status(400).json({ success: false, message: 'Invalid domain.' });
+    }
+
     const { data, error } = await supabase
       .from('cities')
       .select('id, name, code, state, subdomain, custom_domain, status, logo_url, brand_color')

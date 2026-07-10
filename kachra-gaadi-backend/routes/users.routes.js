@@ -44,8 +44,18 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Determine city_id
-    const city_id = req.enforcedCityId || req.body.city_id || null;
+    // SECURITY: city_id from request body is ONLY honoured for superadmin.
+    // A city_admin or supervisor MUST always be scoped to their own city from the JWT.
+    // This prevents a city_admin from crafting a body with a different city's ID.
+    let city_id;
+    if (req.user.role === 'superadmin') {
+      city_id = req.body.city_id || null; // superadmin can target any city
+    } else {
+      city_id = req.enforcedCityId; // always from JWT, never from client
+    }
+    if (!city_id) {
+      return res.status(400).json({ success: false, message: 'city_id is required for this operation.' });
+    }
 
     const { data: existingUser } = await supabase.from('users').select('id').eq('email', email).single();
     if (existingUser) return res.status(400).json({ success: false, message: 'User already exists' });

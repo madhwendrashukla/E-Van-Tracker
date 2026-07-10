@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const env = require('./config/env');
 const supabase = require('./config/supabase');
+const { sanitizeVehicleId } = require('./middleware/validate');
 const authRoutes = require('./routes/auth.routes');
 const citiesRoutes = require('./routes/cities.routes');
 const vehiclesRoutes = require('./routes/vehicles.routes');
@@ -43,6 +44,8 @@ const allowedOrigins = [
   env.FRONTEND_URL,
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  // SECURITY: Do NOT use *.vercel.app — too broad, any Vercel project could make requests.
+  // List only your specific Vercel deployment URL:
   'https://e-van-tracker.vercel.app'
 ].filter(Boolean);
 
@@ -50,12 +53,15 @@ const allowedOrigins = [
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // allow server-to-server
-    // Allow any subdomain of the main domain, plus explicit allowlist
-    const isAllowed = allowedOrigins.some(o => o && origin.startsWith(o)) ||
+    const isAllowed =
+      allowedOrigins.some(o => o && origin === o) ||
       /^https:\/\/[a-z0-9-]+\.mybuildspace\.in$/.test(origin) ||
-      /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin) ||
-      /^http:\/\/(?:[a-z0-9-]+\.)?localhost:3000$/.test(origin);
-    callback(null, isAllowed);
+      /^http:\/\/(?:[a-z0-9-]+\.)?localhost:\d+$/.test(origin) ||
+      origin === 'https://e-van-tracker.vercel.app'; // exact match only
+    if (!isAllowed) {
+      return callback(new Error(`CORS policy: origin ${origin} not allowed`));
+    }
+    callback(null, true);
   },
   credentials: true
 }));
@@ -109,14 +115,30 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id, 'User:', socket.user?.email);
+  console.log('Client connected:', socket.id, 'User:', socket.user?.email || 'guest');
 
-  // Client joins specific rooms (e.g., admin-room or vehicle-LKO-001)
   socket.on('join_room', (room) => {
-    if (room.startsWith('admin-room') && !socket.user) {
-      console.log(`Unauthorized attempt to join ${room} by ${socket.id}`);
-      return; // Must be authenticated to join admin rooms
+    if (typeof room !== 'string' || room.length > 100) {
+      return; // Ignore malformed room names
     }
+    
+    // SECURITY: admin rooms require authentication
+    if (/^admin-room/i.test(room)) {
+      if (!socket.user) {
+        console.warn(`[SECURITY] Unauthorized attempt to join admin room "${room}" by socket ${socket.id}`);
+        return;
+      }
+    }
+    
+    // SECURITY: vehicle rooms must match a valid vehicle code format (e.g. vehicle-LKO-001)
+    if (room.startsWith('vehicle-')) {
+      const vehicleCode = room.replace('vehicle-', '');
+      if (!/^[A-Z0-9-]{2,30}$/.test(vehicleCode)) {
+        console.warn(`[SECURITY] Invalid vehicle room format "${room}" from socket ${socket.id}`);
+        return;
+      }
+    }
+    
     socket.join(room);
     console.log(`Socket ${socket.id} joined room ${room}`);
   });
@@ -129,11 +151,30 @@ io.on('connection', (socket) => {
 // Function to handle location data from hardware trackers and app
 async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp, source }) {
   try {
-    // First find the UUID of the vehicle based on vehicle_code OR imei
+    // SECURITY: Validate and sanitize all inputs
+    const latNum = parseFloat(lat);
+    const lngNum = parseFloat(lng);
+    const speedNum = parseFloat(speed);
+    
+    if (isNaN(latNum) || latNum < -90 || latNum > 90 ||
+        isNaN(lngNum) || lngNum < -180 || lngNum > 180 ||
+        isNaN(speedNum) || speedNum < 0 || speedNum > 300) {
+      console.error('[SECURITY] Rejecting location with invalid coordinates:', { vehicle_id, lat, lng, speed });
+      return false;
+    }
+
+    // SECURITY: Sanitize vehicle_id to prevent Supabase .or() injection
+    const safeVehicleId = sanitizeVehicleId(String(vehicle_id || ''));
+    if (!safeVehicleId) {
+      console.error('[SECURITY] Rejecting location with invalid vehicle_id:', vehicle_id);
+      return false;
+    }
+
+    // Find vehicle by vehicle_code OR imei
     const { data: vehicleData, error: vehicleError } = await supabase
       .from('vehicles')
       .select('id, city_id, route_id, vehicle_code')
-      .or(`vehicle_code.eq.${vehicle_id},imei.eq.${vehicle_id}`)
+      .or(`vehicle_code.eq.${safeVehicleId},imei.eq.${safeVehicleId}`)
       .maybeSingle();
 
     if (vehicleError || !vehicleData) {

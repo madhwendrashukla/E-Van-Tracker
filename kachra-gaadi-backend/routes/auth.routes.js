@@ -11,17 +11,26 @@ const router = express.Router();
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
 
+// Cookie options — must be identical for set AND clear operations
 const cookieOptions = {
   httpOnly: true,
-  secure: true,
-  sameSite: 'none',
+  secure: process.env.NODE_ENV !== 'development',
+  sameSite: process.env.NODE_ENV === 'development' ? 'lax' : 'none',
+  path: '/'
 };
 
-// Auth rate limiter
+// Strict auth rate limiter (login, register, invite)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { success: false, message: 'Too many authentication attempts, please try again later.' }
+});
+
+// Lighter rate limiter for token refresh (allows more frequent calls from active sessions)
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60, // max 60 refresh calls per 15 minutes per IP
+  message: { success: false, message: 'Too many token refresh requests, please try again later.' }
 });
 
 // ── Token generation (now includes city_id) ───────────────────────────────────
@@ -85,6 +94,8 @@ router.post('/login', authLimiter, async (req, res) => {
     res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
+    // SECURITY: Do NOT return raw tokens in body — they live in HttpOnly cookies only.
+    // The frontend must never read tokens from the response body.
     res.json({
       success: true,
       user: { 
@@ -94,9 +105,7 @@ router.post('/login', authLimiter, async (req, res) => {
         city_id: user.city_id,
         city_subdomain: user.city_subdomain,
         custom_domain: user.custom_domain
-      },
-      accessToken,
-      refreshToken
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -105,7 +114,7 @@ router.post('/login', authLimiter, async (req, res) => {
 });
 
 // ── POST /api/auth/refresh ────────────────────────────────────────────────────
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', refreshLimiter, async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
     if (!refreshToken) return res.status(401).json({ success: false, message: 'No refresh token' });
@@ -132,7 +141,8 @@ router.post('/refresh', async (req, res) => {
 
     res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
     res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-    res.json({ success: true, message: 'Token refreshed', accessToken: newAccessToken, refreshToken: newRefreshToken });
+    // SECURITY: Do not include raw tokens in body — HttpOnly cookies only.
+    res.json({ success: true, message: 'Token refreshed' });
   } catch (error) {
     console.error('Refresh error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -149,8 +159,10 @@ router.post('/logout', async (req, res) => {
         await supabase.from('users').update({ refresh_token: null }).eq('id', decoded.id);
       } catch (_) {}
     }
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    // SECURITY: Must pass the same options used when the cookie was SET,
+    // otherwise the browser will not clear it in production (secure/sameSite mismatch).
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
     res.json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);

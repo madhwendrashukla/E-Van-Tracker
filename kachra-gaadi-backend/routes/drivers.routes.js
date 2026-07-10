@@ -26,11 +26,22 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { name, phone, license_number, status } = req.body;
-    // city_id always comes from the JWT, never from the client body
-    const city_id = req.enforcedCityId;
-    if (!city_id) {
-      return res.status(400).json({ success: false, message: 'Superadmin must specify city_id in body.' });
+    
+    // SECURITY: city_id from request body is ONLY honoured for superadmin.
+    // City admins are always auto-scoped to their own city from the JWT.
+    let city_id;
+    if (req.user.role === 'superadmin') {
+      city_id = req.body.city_id || null;
+      if (!city_id) {
+        return res.status(400).json({ success: false, message: 'Superadmin must specify city_id in body.' });
+      }
+    } else {
+      city_id = req.enforcedCityId;
+      if (!city_id) {
+        return res.status(400).json({ success: false, message: 'No city assigned to your account.' });
+      }
     }
+
     const { data, error } = await supabase
       .from('drivers')
       .insert([{ name, phone, license_number, status, city_id }])
