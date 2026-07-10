@@ -211,6 +211,44 @@ export default function TrackVehicle({ params }) {
     return () => clearInterval(interval);
   }, [location?.timestamp]);
 
+  // HTTP Polling Fallback (every 90s)
+  // GPS sends every ~60s. If the socket misses a push (network hiccup, server restart),
+  // this fallback polls the DB directly so the map never goes stale.
+  // It only updates state if the polled timestamp is NEWER than what we already have.
+  useEffect(() => {
+    if (!vehicleCode) return;
+    const POLL_INTERVAL_MS = 90 * 1000; // 90 seconds
+
+    const poll = () => {
+      api.get(`/api/location/history/${vehicleCode}`)
+        .then(res => {
+          const json = res.data;
+          if (json.success && json.data && json.data.length > 0) {
+            const latest = json.data[json.data.length - 1];
+            setLocation(prev => {
+              // Only update if the polled data is newer than what we already have
+              if (!prev || new Date(latest.timestamp) > new Date(prev.timestamp)) {
+                console.log('[Poll] HTTP fallback found newer location:', latest.timestamp);
+                return {
+                  vehicle_id: vehicleCode.toUpperCase(),
+                  lat: latest.lat,
+                  lng: latest.lng,
+                  speed: latest.speed,
+                  timestamp: latest.timestamp,
+                  source: 'poll'
+                };
+              }
+              return prev; // Socket already has newer data, keep it
+            });
+          }
+        })
+        .catch(() => {}); // Silent fail — socket is the primary source
+    };
+
+    const pollInterval = setInterval(poll, POLL_INTERVAL_MS);
+    return () => clearInterval(pollInterval);
+  }, [vehicleCode]);
+
   // Weather Data
   useEffect(() => {
     if (location?.lat && location?.lng && !weatherData) {
@@ -229,17 +267,32 @@ export default function TrackVehicle({ params }) {
     }
   }, [location?.lat, location?.lng]);
 
+  // GPS TIMING NOTES:
+  // This tracker sends data every ~60 seconds.
+  // Grace window: 0-90s = Live (normal window for one 60s ping + network delay)
+  // Warning window: 90-300s = Signal Weak (1-4 missed pings, do not show as offline yet)
+  // Offline: >300s = truly offline (5+ missed pings)
+  const GPS_INTERVAL_SEC = 60;
+  const GPS_GRACE_SEC = GPS_INTERVAL_SEC + 30;  // 90s  — still live
+  const GPS_WEAK_SEC  = GPS_INTERVAL_SEC * 4;   // 240s — signal weak
+  const GPS_OFFLINE_SEC = GPS_INTERVAL_SEC * 5; // 300s — offline
+
   const getOperationalStatus = () => {
     if (!location) return { label: 'Waiting...', color: 'bg-gray-100 text-gray-500 border-gray-200' };
     
-    const isOffline = secondsAgo !== null && secondsAgo > 120;
-    if (isOffline) return { label: 'GPS Offline', color: 'bg-red-50 text-red-600 border-red-200' };
+    if (secondsAgo !== null && secondsAgo > GPS_OFFLINE_SEC) {
+      return { label: 'GPS Offline', color: 'bg-red-50 text-red-600 border-red-200' };
+    }
+    if (secondsAgo !== null && secondsAgo > GPS_WEAK_SEC) {
+      return { label: 'Signal Weak', color: 'bg-amber-50 text-amber-600 border-amber-200' };
+    }
     
     if (location.speed > 0) {
       if (etaInfo?.distance < 0.2) return { label: 'Collecting', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
       return { label: 'On Route', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
     }
     
+    // Delayed = idle for > 15 mins (vs the old 15min threshold)
     if (secondsAgo !== null && secondsAgo > 900) return { label: 'Delayed', color: 'bg-amber-50 text-amber-600 border-amber-200' };
     
     return { label: 'Idle', color: 'bg-orange-50 text-orange-600 border-orange-200' };
@@ -248,9 +301,29 @@ export default function TrackVehicle({ params }) {
 
   const renderLastUpdated = () => {
     if (!location?.timestamp || secondsAgo === null) return <span>Waiting for GPS...</span>;
-    if (secondsAgo < 10) return <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#4ade80] animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></div><span className="text-[#4ade80] font-bold">Live ({secondsAgo} sec ago)</span></div>;
-    if (secondsAgo < 60) return <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-400"></div><span className="text-orange-400 font-bold">Last update {secondsAgo} sec ago</span></div>;
-    return <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div><span className="text-red-500 font-bold">Offline since {new Date(location.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div>;
+    // Live: within the 90s grace window (60s interval + 30s network buffer)
+    if (secondsAgo <= GPS_GRACE_SEC) return (
+      <div className="flex items-center gap-1.5">
+        <div className="w-2 h-2 rounded-full bg-[#4ade80] animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
+        <span className="text-[#4ade80] font-bold">
+          {secondsAgo < 5 ? 'Just updated' : `${secondsAgo}s ago`}
+        </span>
+      </div>
+    );
+    // Signal weak: 90s–300s (1–4 missed pings)
+    if (secondsAgo <= GPS_OFFLINE_SEC) return (
+      <div className="flex items-center gap-1.5">
+        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+        <span className="text-amber-400 font-bold">Signal weak — {Math.floor(secondsAgo / 60)}m {secondsAgo % 60}s ago</span>
+      </div>
+    );
+    // Offline: >300s (5+ missed pings)
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="w-2 h-2 rounded-full bg-red-500" />
+        <span className="text-red-500 font-bold">Offline since {new Date(location.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+      </div>
+    );
   };
 
   const renderWeather = () => {
