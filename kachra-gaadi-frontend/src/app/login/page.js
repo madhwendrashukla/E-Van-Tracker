@@ -50,7 +50,7 @@ export default function LoginPage() {
         // on every request due to withCredentials:true in axios config.
         
         if (data.user.role === 'superadmin') {
-          window.location.href = '/superadmin';
+          window.location.href = `/superadmin?t=${Date.now()}`;
         } else if (['city_admin', 'admin', 'supervisor'].includes(data.user.role)) {
           // Cross-domain redirection to the correct city subdomain
           const currentHostname = window.location.hostname;
@@ -63,9 +63,9 @@ export default function LoginPage() {
             const finalHost = data.user.custom_domain ? data.user.custom_domain : (
               isLocal ? `${data.user.city_subdomain}.localhost` : targetDomain
             );
-            window.location.href = `${protocol}//${finalHost}${port}/admin`;
+            window.location.href = `${protocol}//${finalHost}${port}/admin?t=${Date.now()}`;
           } else {
-            window.location.href = '/admin';
+            window.location.href = `/admin?t=${Date.now()}`;
           }
         } else {
           window.location.href = '/';
