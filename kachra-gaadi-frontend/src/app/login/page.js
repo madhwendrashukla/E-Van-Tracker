@@ -50,7 +50,7 @@ export default function LoginPage() {
         // on every request due to withCredentials:true in axios config.
         
         if (data.user.role === 'superadmin') {
-          router.push('/superadmin');
+          window.location.href = '/superadmin';
         } else if (['city_admin', 'admin', 'supervisor'].includes(data.user.role)) {
           // Cross-domain redirection to the correct city subdomain
           const currentHostname = window.location.hostname;
@@ -65,10 +65,10 @@ export default function LoginPage() {
             );
             window.location.href = `${protocol}//${finalHost}${port}/admin`;
           } else {
-            router.push('/admin');
+            window.location.href = '/admin';
           }
         } else {
-          router.push('/');
+          window.location.href = '/';
         }
       } else {
         setError(data.message || 'Login failed');
