@@ -58,6 +58,16 @@ export default function TrackVehicle({ params }) {
     }
   }, []);
 
+  // Helper to ensure timestamps from DB without 'Z' are parsed as UTC
+  const parseSafeDate = (ts) => {
+    if (!ts) return new Date();
+    let timeString = typeof ts === 'string' ? ts : ts.toString();
+    if (!timeString.endsWith('Z') && !timeString.includes('+') && timeString.includes('T')) {
+      timeString += 'Z';
+    }
+    return new Date(timeString);
+  };
+
   // Haversine formula for distance
   const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the earth in km
@@ -204,9 +214,9 @@ export default function TrackVehicle({ params }) {
   useEffect(() => {
     if (!location?.timestamp) return;
     // eslint-disable-next-line
-    setSecondsAgo(Math.floor((Date.now() - new Date(location.timestamp).getTime()) / 1000));
+    setSecondsAgo(Math.floor((Date.now() - parseSafeDate(location.timestamp).getTime()) / 1000));
     const interval = setInterval(() => {
-      setSecondsAgo(Math.floor((Date.now() - new Date(location.timestamp).getTime()) / 1000));
+      setSecondsAgo(Math.floor((Date.now() - parseSafeDate(location.timestamp).getTime()) / 1000));
     }, 1000);
     return () => clearInterval(interval);
   }, [location?.timestamp]);
@@ -227,7 +237,7 @@ export default function TrackVehicle({ params }) {
             const latest = json.data[json.data.length - 1];
             setLocation(prev => {
               // Only update if the polled data is newer than what we already have
-              if (!prev || new Date(latest.timestamp) > new Date(prev.timestamp)) {
+              if (!prev || parseSafeDate(latest.timestamp) > parseSafeDate(prev.timestamp)) {
                 console.log('[Poll] HTTP fallback found newer location:', latest.timestamp);
                 return {
                   vehicle_id: vehicleCode.toUpperCase(),
@@ -321,7 +331,7 @@ export default function TrackVehicle({ params }) {
     return (
       <div className="flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full bg-red-500" />
-        <span className="text-red-500 font-bold">Offline since {new Date(location.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        <span className="text-red-500 font-bold">Offline since {parseSafeDate(location.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
       </div>
     );
   };
