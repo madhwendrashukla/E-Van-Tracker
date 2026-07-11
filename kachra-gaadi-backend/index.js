@@ -21,8 +21,32 @@ const superadminRoutes = require('./routes/superadmin.routes');
 const { startTcpServer } = require('./tcpServer');
 const { startCronJobs } = require('./cron');
 const { authenticateToken, authorizeRole } = require('./middleware/auth');
-const { routeStopsCache } = require('./utils/cache');
+const { routeStopsCache, vehicleStopEntryTimes, settingsCache } = require('./utils/cache');
 
+// Load global settings
+async function loadGlobalSettings() {
+  try {
+    const { data: settingsData } = await supabase.from('settings').select('*').is('city_id', null);
+    if (settingsData) {
+      settingsData.forEach(s => settingsCache.set(s.key, s.value));
+    }
+    
+    // Seed defaults if missing
+    if (!settingsCache.has('checkpoint_radius')) {
+      await supabase.from('settings').insert([{ key: 'checkpoint_radius', value: '20' }]);
+      settingsCache.set('checkpoint_radius', '20');
+    }
+    if (!settingsCache.has('checkpoint_time_seconds')) {
+      await supabase.from('settings').insert([{ key: 'checkpoint_time_seconds', value: '10' }]);
+      settingsCache.set('checkpoint_time_seconds', '10');
+    }
+  } catch (err) {
+    console.error('Error loading global settings:', err);
+  }
+}
+// Initial load and periodic refresh
+loadGlobalSettings();
+setInterval(loadGlobalSettings, 60000); // refresh every minute
 // Haversine formula
 function getDistanceInMeters(lat1, lon1, lat2, lon2) {
   const R = 6371e3; // Radius of the earth in m
@@ -226,32 +250,53 @@ async function processHardwareLocation({ vehicle_id, lat, lng, speed, timestamp,
 
       // 2. Check distance to each stop
       if (stops && stops.length > 0) {
-        const DETECTION_RADIUS_METERS = 50;
+        // Fetch from cache, parse as float/int, fallback to default if missing or invalid
+        const radiusSetting = parseFloat(settingsCache.get('checkpoint_radius')) || 20;
+        const timeSetting = parseInt(settingsCache.get('checkpoint_time_seconds')) || 10;
+        const DETECTION_RADIUS_METERS = radiusSetting;
         
-        // Find if any stop is within radius
-        const reachedStop = stops.find(stop => {
-          const distance = getDistanceInMeters(lat, lng, stop.lat, stop.lng);
-          return distance <= DETECTION_RADIUS_METERS;
-        });
+        // Check if vehicle is within radius of any stop
+        let isWithinAnyStop = false;
 
-        if (reachedStop) {
-          // 3. Try to log the visit (Database unique constraint prevents duplicates for today)
-          const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        for (const stop of stops) {
+          const distance = getDistanceInMeters(lat, lng, stop.lat, stop.lng);
+          const stateKey = `${vehicleData.id}_${stop.id}`;
           
-          // Fire and forget, don't wait for it
-          supabase
-            .from('stop_visits')
-            .insert([{
-              vehicle_id: vehicleData.id,
-              route_id: vehicleData.route_id,
-              stop_id: reachedStop.id,
-              visit_date: today
-            }])
-            .then(({ error }) => {
-              if (error && error.code !== '23505') { // Ignore unique violation errors
-                console.error('Error logging stop visit:', error);
-              }
-            });
+          if (distance <= DETECTION_RADIUS_METERS) {
+            isWithinAnyStop = true;
+            
+            // Track entry time
+            if (!vehicleStopEntryTimes.has(stateKey)) {
+              vehicleStopEntryTimes.set(stateKey, Date.now());
+            }
+            
+            const entryTime = vehicleStopEntryTimes.get(stateKey);
+            const timeSpentSeconds = (Date.now() - entryTime) / 1000;
+            
+            if (timeSpentSeconds >= timeSetting) {
+              // Time threshold met, log the visit
+              const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+              
+              // Prevent spamming the insert by clearing the map entry or just letting DB constraint handle it
+              // We rely on DB unique constraint (vehicle_id, route_id, stop_id, visit_date)
+              supabase
+                .from('stop_visits')
+                .insert([{
+                  vehicle_id: vehicleData.id,
+                  route_id: vehicleData.route_id,
+                  stop_id: stop.id,
+                  visit_date: today
+                }])
+                .then(({ error }) => {
+                  if (error && error.code !== '23505') { // Ignore unique violation errors
+                    console.error('Error logging stop visit:', error);
+                  }
+                });
+            }
+          } else {
+            // Vehicle left radius of this stop, reset timer
+            vehicleStopEntryTimes.delete(stateKey);
+          }
         }
       }
     }

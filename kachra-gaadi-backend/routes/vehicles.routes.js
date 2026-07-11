@@ -320,6 +320,7 @@ router.get('/:vehicleCode/stops/today', async (req, res) => {
     let etaMinutes = null;
     let avgSpeed = 0;
     let latestLog = null;
+    let distanceTraveledMeters = 0;
 
     if (logs && logs.length > 0) {
       const validLogs = logs.filter(l => l.speed !== null && l.speed !== undefined);
@@ -335,6 +336,20 @@ router.get('/:vehicleCode/stops/today', async (req, res) => {
         const speedMetersPerMin = (speedToUse * 1000) / 60;
         if (speedMetersPerMin > 0) {
           etaMinutes = Math.round(distanceToNext / speedMetersPerMin);
+        }
+      }
+      
+      // Calculate total distance traveled today with anti-drift filter
+      if (logs.length > 1) {
+        let lastValidPoint = logs[logs.length - 1];
+        for (let i = logs.length - 2; i >= 0; i--) {
+          const p = logs[i];
+          const truckSpeed = parseFloat(p.speed) || 0;
+          const dist = getDistanceInMetersLocal(lastValidPoint.lat, lastValidPoint.lng, p.lat, p.lng);
+          if (dist > 30.0 && truckSpeed > 4.0) {
+            distanceTraveledMeters += dist;
+            lastValidPoint = p;
+          }
         }
       }
     }
@@ -376,10 +391,11 @@ router.get('/:vehicleCode/stops/today', async (req, res) => {
         distance_to_next: distanceToNext ? Math.round(distanceToNext) : null,
         eta_minutes: etaMinutes,
         average_speed: avgSpeed ? parseFloat(avgSpeed.toFixed(1)) : 0,
+        distance_traveled: distanceTraveledMeters / 1000,
         completed_stops,
         missed_stops,
-        delayed_stops,
-        upcoming_stops
+        upcoming_stops,
+        delayed_stops
       }
     });
 

@@ -31,7 +31,6 @@ export default function TrackVehicle({ params }) {
   const [etaInfo, setEtaInfo] = useState(null);
   const [checkpointStats, setCheckpointStats] = useState(null);
   const [vehicleDetails, setVehicleDetails] = useState(null);
-  const [distanceTraveled, setDistanceTraveled] = useState(0);
   const [secondsAgo, setSecondsAgo] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [activeTab, setActiveTab] = useState('Route');
@@ -107,6 +106,15 @@ export default function TrackVehicle({ params }) {
     socket.on("location_update", (data) => {
       setLocation(data);
       setLastUpdate(0); // Reset timer
+      
+      // Update Today's Progress dynamically when location updates
+      api.get(`/api/vehicles/${vehicleCode}/stops/today`)
+        .then(res => {
+          if (res.data.success) {
+            setCheckpointStats(res.data.data);
+          }
+        })
+        .catch(err => console.error("Error fetching checkpoint stats", err));
     });
 
     return () => {
@@ -254,6 +262,15 @@ export default function TrackVehicle({ params }) {
           }
         })
         .catch(() => {}); // Silent fail — socket is the primary source
+        
+      // Also poll checkpoint stats
+      api.get(`/api/vehicles/${vehicleCode}/stops/today`)
+        .then(res => {
+          if (res.data.success) {
+            setCheckpointStats(res.data.data);
+          }
+        })
+        .catch(() => {});
     };
 
     const pollInterval = setInterval(poll, POLL_INTERVAL_MS);
@@ -455,7 +472,6 @@ export default function TrackVehicle({ params }) {
           vehicleLocation={location} 
           backendUrl={BACKEND_URL} 
           plannedStops={routeData?.stops || []} 
-          onDistanceUpdate={(dist) => setDistanceTraveled(dist)}
           focusRouteTrigger={focusRouteTrigger}
           onNextStopUpdate={(stop) => setTargetStop(stop)}
         />
@@ -575,7 +591,7 @@ export default function TrackVehicle({ params }) {
             <svg className="text-gray-300 w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
             <div>
               <p className="text-[11px] text-gray-500 font-bold mb-0.5">Distance Traveled</p>
-              <p className="text-[13px] font-extrabold text-gray-800">{distanceTraveled > 0 ? distanceTraveled.toFixed(1) : '0.0'} km</p>
+              <p className="text-[13px] font-extrabold text-gray-800">{checkpointStats?.distance_traveled > 0 ? checkpointStats.distance_traveled.toFixed(1) : '0.0'} km</p>
             </div>
           </div>
           

@@ -132,7 +132,7 @@ function getHTMLMarkerClass() {
   return HTMLMarkerClass;
 }
 
-export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], onDistanceUpdate, focusRouteTrigger = 0, onNextStopUpdate }) {
+export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAdmin = false, isBuilderMode = false, onMapClick, plannedStops = [], focusRouteTrigger = 0, onNextStopUpdate }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [visitedStops, setVisitedStops] = useState([]);
@@ -426,17 +426,6 @@ export default function MapView({ vehicleLocation, allVehicles, backendUrl, isAd
       }
 
       if (livePathRef.current.length > 1) {
-        // Calculate total distance traveled
-        let dist = 0;
-        for (let i = 0; i < livePathRef.current.length - 1; i++) {
-          const p1 = livePathRef.current[i];
-          const p2 = livePathRef.current[i + 1];
-          dist += getDistanceInMeters(p1.lat, p1.lng, p2.lat, p2.lng) / 1000;
-        }
-        if (typeof onDistanceUpdate === 'function') {
-          onDistanceUpdate(dist);
-        }
-
         if (showHistory) {
           polylinesRef.current[vid] = new window.google.maps.Polyline({
             map: mapRef.current,
