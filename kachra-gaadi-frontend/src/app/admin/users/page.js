@@ -100,7 +100,7 @@ export default function UsersPage() {
             </form>
           </div>
           
-          <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>

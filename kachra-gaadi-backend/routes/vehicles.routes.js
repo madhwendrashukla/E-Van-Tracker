@@ -467,7 +467,7 @@ router.get('/:vehicleCode/history-report', authenticateToken, requireCityScope, 
     let vehicleQuery = supabase
       .from('vehicles')
       .select('id, route_id, drivers(name, phone)')
-      .eq('vehicle_code', vehicleCode);
+      .ilike('vehicle_code', vehicleCode);
     
     if (req.enforcedCityId) {
       vehicleQuery = vehicleQuery.eq('city_id', req.enforcedCityId);

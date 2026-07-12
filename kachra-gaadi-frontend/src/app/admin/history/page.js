@@ -172,34 +172,35 @@ export default function HistoryPage() {
 
   return (
     <>
-      <header className="h-auto bg-white border-b border-gray-200 flex flex-col px-8 z-10 shadow-sm shrink-0">
-        <div className="flex items-center justify-between h-20">
-          <h2 className="text-2xl font-bold text-gray-800">Historical Reports</h2>
+      <header className="h-auto bg-white border-b border-gray-200 flex flex-col px-4 md:px-8 z-10 shadow-sm shrink-0">
+        <div className="flex items-center justify-between py-4 md:h-20">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800">Historical Reports</h2>
           <button 
             onClick={exportCSV}
-            className="bg-gray-800 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition flex items-center gap-2"
+            className="bg-gray-800 text-white px-3 md:px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition flex items-center gap-2 text-sm md:text-base"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            Export CSV
+            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">Export</span>
           </button>
         </div>
         
-        <div className="flex flex-wrap items-center gap-6 pb-4 border-t pt-4">
-          <div className="flex bg-gray-100 p-1 rounded-xl">
+        <div className="flex flex-wrap items-center gap-4 md:gap-6 pb-4 md:border-t pt-2 md:pt-4">
+          <div className="flex bg-gray-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto shrink-0">
             <button 
-              className={`px-4 py-2 rounded-lg font-bold text-sm ${activeTab === 'single' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap ${activeTab === 'single' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}
               onClick={() => setActiveTab('single')}
             >Single Vehicle</button>
             <button 
-              className={`px-4 py-2 rounded-lg font-bold text-sm ${activeTab === 'fleet' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap ${activeTab === 'fleet' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}
               onClick={() => setActiveTab('fleet')}
             >Fleet Summary</button>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <label className="font-semibold text-gray-600 text-sm">Period:</label>
+          <div className="flex items-center space-x-2 md:space-x-3 w-1/2 sm:w-auto">
+            <label className="font-semibold text-gray-600 text-xs md:text-sm">Period:</label>
             <select 
-              className="border border-gray-300 rounded-lg p-2 bg-gray-50 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
+              className="w-full sm:w-auto border border-gray-300 rounded-lg p-2 bg-gray-50 text-xs md:text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
               value={period}
               onChange={e => setPeriod(e.target.value)}
             >
@@ -209,11 +210,11 @@ export default function HistoryPage() {
             </select>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <label className="font-semibold text-gray-600 text-sm">End Date:</label>
+          <div className="flex items-center space-x-2 md:space-x-3 w-[45%] sm:w-auto">
+            <label className="font-semibold text-gray-600 text-xs md:text-sm">End:</label>
             <input 
               type="date" 
-              className="border border-gray-300 rounded-lg p-2 bg-gray-50 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
+              className="w-full sm:w-auto border border-gray-300 rounded-lg p-2 bg-gray-50 text-xs md:text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
               value={selectedDate}
               onChange={e => setSelectedDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
@@ -221,10 +222,10 @@ export default function HistoryPage() {
           </div>
 
           {activeTab === 'single' && (
-            <div className="flex items-center space-x-3">
-              <label className="font-semibold text-gray-600 text-sm">Vehicle:</label>
+            <div className="flex items-center space-x-2 md:space-x-3 w-full sm:w-auto mt-2 sm:mt-0">
+              <label className="font-semibold text-gray-600 text-xs md:text-sm shrink-0">Vehicle:</label>
               <select 
-                className="border border-gray-300 rounded-lg p-2 bg-gray-50 text-sm min-w-[150px] focus:ring-2 focus:ring-green-500 focus:outline-none"
+                className="w-full sm:w-auto border border-gray-300 rounded-lg p-2 bg-gray-50 text-xs md:text-sm min-w-[150px] focus:ring-2 focus:ring-green-500 focus:outline-none"
                 value={selectedVehicleCode}
                 onChange={e => setSelectedVehicleCode(e.target.value)}
               >
@@ -238,7 +239,7 @@ export default function HistoryPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-8 bg-[#f8fafc]">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#f8fafc]">
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center">
             <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
@@ -299,8 +300,8 @@ export default function HistoryPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left text-sm">
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-[600px]">
                   <thead className="bg-gray-50 text-gray-500 font-semibold uppercase">
                     <tr>
                       <th className="px-6 py-4">Date</th>
@@ -332,8 +333,8 @@ export default function HistoryPage() {
               </div>
             </div>
             
-            <div className="bg-white rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 overflow-hidden">
-              <table className="w-full text-left text-sm">
+            <div className="bg-white rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 overflow-x-auto">
+              <table className="w-full text-left text-sm min-w-[600px]">
                 <thead className="bg-gray-50 text-gray-500 font-semibold uppercase">
                   <tr>
                     <th className="px-6 py-4">Vehicle</th>

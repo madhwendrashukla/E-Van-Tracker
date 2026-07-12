@@ -95,7 +95,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 z-10 shadow-sm">
+        <header className="hidden md:flex h-20 bg-white border-b border-gray-200 items-center justify-between px-8 z-10 shadow-sm shrink-0">
           <h2 className="text-2xl font-bold text-gray-800">Fleet Overview</h2>
           <div className="flex items-center space-x-4">
             <button className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
@@ -106,48 +106,52 @@ export default function AdminDashboard() {
         </header>
 
         {/* Dashboard Content */}
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-4 md:p-8">
           
+          <div className="md:hidden mb-6 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">Fleet Overview</h2>
+          </div>
+
           {/* KPI Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center hover:shadow-md transition-shadow">
-              <div className="p-4 bg-blue-50 text-blue-600 rounded-xl mr-5">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center hover:shadow-md transition-shadow">
+              <div className="p-3 md:p-4 bg-blue-50 text-blue-600 rounded-xl mr-4 md:mr-5">
+                <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Fleet</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Fleet</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900">{stats.total}</p>
               </div>
             </div>
             
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center hover:shadow-md transition-shadow">
-              <div className="p-4 bg-emerald-50 text-emerald-600 rounded-xl mr-5">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center hover:shadow-md transition-shadow">
+              <div className="p-3 md:p-4 bg-emerald-50 text-emerald-600 rounded-xl mr-4 md:mr-5">
+                <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Active Now</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.active}</p>
+                <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Active Now</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900">{stats.active}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center hover:shadow-md transition-shadow">
-              <div className="p-4 bg-amber-50 text-amber-600 rounded-xl mr-5">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center hover:shadow-md transition-shadow">
+              <div className="p-3 md:p-4 bg-amber-50 text-amber-600 rounded-xl mr-4 md:mr-5">
+                <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Speed Warnings</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.warnings}</p>
+                <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Speed Warnings</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900">{stats.warnings}</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[600px]">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6 lg:gap-8 lg:h-[600px]">
             {/* Map Area */}
-            <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
-              <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <h2 className="text-lg font-bold text-gray-800">Live Mission Map</h2>
-                <span className="text-xs font-semibold px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+            <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[400px] lg:h-full shrink-0">
+              <div className="p-4 md:p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h2 className="text-base md:text-lg font-bold text-gray-800">Live Mission Map</h2>
+                <span className="text-[10px] md:text-xs font-semibold px-2 md:px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 md:mr-2 animate-pulse"></span>
                   Real-time
                 </span>
               </div>
@@ -157,7 +161,7 @@ export default function AdminDashboard() {
             </div>
             
             {/* Vehicle List */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[500px] lg:h-full shrink-0 mt-2 lg:mt-0">
                <div className="p-5 border-b border-gray-100 bg-gray-50/50">
                 <h2 className="text-lg font-bold text-gray-800">Vehicle Roster</h2>
               </div>

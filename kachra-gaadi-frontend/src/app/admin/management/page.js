@@ -383,7 +383,7 @@ export default function ManagementDashboard() {
                           {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          <input required type="text" placeholder="Vehicle Code" className="w-full border rounded-xl p-3 uppercase"
                           value={vehicleForm.vehicle_code} onChange={e => setVehicleForm({...vehicleForm, vehicle_code: e.target.value.toUpperCase()})} />
                          <input type="text" placeholder="IMEI Number" className="w-full border rounded-xl p-3"
@@ -391,7 +391,7 @@ export default function ManagementDashboard() {
                          <input type="text" placeholder="License Plate" className="w-full border rounded-xl p-3 uppercase"
                           value={vehicleForm.license_plate} onChange={e => setVehicleForm({...vehicleForm, license_plate: e.target.value.toUpperCase()})} />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs text-gray-500 ml-1">Status</label>
                           <select className="w-full border rounded-xl p-3 bg-white" value={vehicleForm.status} onChange={e => setVehicleForm({...vehicleForm, status: e.target.value})}>

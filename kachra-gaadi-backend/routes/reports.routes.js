@@ -84,7 +84,7 @@ router.get('/:vehicleCode/summary', authenticateToken, requireCityScope, checkCi
       return res.status(400).json({ success: false, message: 'start_date and end_date are required' });
     }
 
-    let vehicleQuery = supabase.from('vehicles').select('id, vehicle_code, route_id, drivers(name, phone)').eq('vehicle_code', vehicleCode);
+    let vehicleQuery = supabase.from('vehicles').select('id, vehicle_code, route_id, drivers(name, phone)').ilike('vehicle_code', vehicleCode);
     if (req.enforcedCityId) {
       vehicleQuery = vehicleQuery.eq('city_id', req.enforcedCityId);
     }
