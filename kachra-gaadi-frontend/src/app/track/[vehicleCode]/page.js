@@ -17,6 +17,7 @@ export default function TrackVehicle({ params }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [focusRouteTrigger, setFocusRouteTrigger] = useState(0);
   const [isMonitoringOpen, setIsMonitoringOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState('map'); // 'map' | 'details'
 
   const unwrappedParams = use(params);
   const vehicleCode = unwrappedParams.vehicleCode;
@@ -441,7 +442,7 @@ export default function TrackVehicle({ params }) {
           </div>
           <button 
             onClick={() => setIsMonitoringOpen(true)}
-            className="border border-white/20 hover:bg-black/10 transition-colors px-4 py-1.5 rounded-md flex items-center gap-2 text-sm font-semibold"
+            className="hidden md:flex border border-white/20 hover:bg-black/10 transition-colors px-4 py-1.5 rounded-md items-center gap-2 text-sm font-semibold"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
             Details
@@ -451,6 +452,18 @@ export default function TrackVehicle({ params }) {
           </button>
         </div>
       </header>
+
+      {/* MOBILE TAB SWITCHER */}
+      <div className="md:hidden flex p-2 bg-white z-20 relative shadow-sm border-b border-gray-100 shrink-0">
+        <button 
+          onClick={() => setMobileTab('map')}
+          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${mobileTab === 'map' ? 'bg-green-50 text-green-700 shadow-sm border border-green-100' : 'text-gray-500 bg-transparent'}`}
+        >Map View</button>
+        <button 
+          onClick={() => setMobileTab('details')}
+          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${mobileTab === 'details' ? 'bg-green-50 text-green-700 shadow-sm border border-green-100' : 'text-gray-500 bg-transparent'}`}
+        >Details</button>
+      </div>
 
       {/* FLOATING FILTER BAR */}
       <div className="absolute top-[80px] left-0 w-full px-6 z-10 flex justify-between pointer-events-none">
@@ -469,7 +482,7 @@ export default function TrackVehicle({ params }) {
       </div>
 
       {/* MAP AREA */}
-      <main className="flex-grow relative z-0">
+      <main className={`flex-grow relative z-0 ${mobileTab === 'details' ? 'hidden md:block' : 'block'}`}>
         <MapView 
           vehicleLocation={location} 
           backendUrl={BACKEND_URL} 
@@ -480,10 +493,12 @@ export default function TrackVehicle({ params }) {
       </main>
 
       {/* BOTTOM SHEET */}
-      <div className="absolute bottom-6 left-6 right-6 bg-white rounded-[20px] shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-200 p-6 z-20">
-        <h2 className="text-[15px] font-extrabold text-gray-800 mb-5">Vehicle Status</h2>
+      <div className={`absolute bottom-6 left-4 right-4 md:left-6 md:right-6 bg-white rounded-[20px] shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-200 p-4 md:p-6 z-20 ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
         
-        <div className="flex flex-col xl:flex-row gap-6 mb-5">
+        <div className="hidden md:block">
+          <h2 className="text-[15px] font-extrabold text-gray-800 mb-5">Vehicle Status</h2>
+        
+          <div className="flex flex-col xl:flex-row gap-6 mb-5">
           {/* Left Col */}
           <div className="flex-[0.8] space-y-5">
             <div className="flex gap-3">
@@ -610,13 +625,114 @@ export default function TrackVehicle({ params }) {
             </div>
           </div>
           
-          <button 
-            onClick={() => setFocusRouteTrigger(prev => prev + 1)}
-            className="w-full md:w-auto mt-2 md:mt-0 justify-center bg-white hover:bg-gray-50 text-[#16a34a] border border-[#bbf7d0] px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 transition-all shadow-sm"
-          >
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-            View Route
-          </button>
+            <button 
+              onClick={() => setFocusRouteTrigger(prev => prev + 1)}
+              className="w-full md:w-auto mt-2 md:mt-0 justify-center bg-white hover:bg-gray-50 text-[#16a34a] border border-[#bbf7d0] px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 transition-all shadow-sm"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+              View Route
+            </button>
+          </div>
+        </div>
+
+        {/* MOBILE COMPACT BOTTOM CARD */}
+        <div className="block md:hidden">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 block">Today's Progress</span>
+              <div className="flex gap-[2px] h-2 w-full bg-gray-100 rounded-sm overflow-hidden p-[1px] mb-1.5 shadow-inner">
+                {checkpointStats?.total > 0 ? (
+                  [...Array(checkpointStats.total)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={`h-full flex-1 rounded-sm ${i < checkpointStats.covered ? 'bg-[#1a1a1a]' : 'bg-transparent border border-gray-200'}`}
+                    ></div>
+                  ))
+                ) : (
+                  <div className="h-full w-full bg-gray-200 rounded-sm border border-gray-300 border-dashed"></div>
+                )}
+              </div>
+              <div className="flex justify-between items-end">
+                <span className="text-[12px] font-black text-gray-800">{checkpointStats?.covered || 0} / {checkpointStats?.total || 0}</span>
+                <span className="text-[12px] font-black text-[#429d5b]">
+                  {checkpointStats?.total ? Math.round((checkpointStats.covered / checkpointStats.total) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+            
+            <div className="w-px bg-gray-100"></div>
+            
+            <div className="flex-1">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 block">Est. Next Stop</span>
+              <p className="text-[13px] font-extrabold text-gray-800 truncate leading-tight">{etaInfo?.stopName || (routeData === false ? 'No Route' : '...')}</p>
+              <p className="text-[11px] text-[#16a34a] font-bold mt-0.5">{etaInfo?.minutes ? `ETA: ${etaInfo.minutes}m` : '--'}</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* MOBILE DETAILS VIEW */}
+      <div className={`flex-1 bg-gray-50 overflow-y-auto p-4 md:hidden ${mobileTab === 'details' ? 'block' : 'hidden'}`}>
+        <div className="space-y-4">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-50 text-green-500 flex items-center justify-center">
+                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-500 font-bold mb-0.5">Current Position</p>
+                <p className="text-[13px] text-gray-900 font-bold">{location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : 'Waiting...'}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-500 font-bold mb-1">Last Updated</p>
+                <div className="text-[12px] bg-black text-white px-2 py-1 rounded border border-[#222] shadow-sm inline-block">
+                  {renderLastUpdated()}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+              <span className="text-[11px] font-bold text-gray-500 mb-1 block">Speed</span>
+              <p className="text-[20px] font-black text-[#429d5b]">
+                {location?.speed ? Number(location.speed).toFixed(1) : 0} <span className="text-[11px]">km/h</span>
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+              <span className="text-[11px] font-bold text-gray-500 mb-1 block">Status</span>
+              <span className={`text-[10px] px-2 py-1 rounded-full font-bold block w-fit border ${opStatus.color}`}>
+                {opStatus.label}
+              </span>
+            </div>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+              <span className="text-[11px] font-bold text-gray-500 mb-1 block">Driver</span>
+              <p className="text-[14px] font-black text-gray-800">{vehicleDetails?.driver_name || 'Unassigned'}</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+              <span className="text-[11px] font-bold text-gray-500 mb-1 block">Distance</span>
+              <p className="text-[14px] font-black text-gray-800">{checkpointStats?.distance_traveled > 0 ? checkpointStats.distance_traveled.toFixed(1) : '0.0'} km</p>
+            </div>
+          </div>
+          
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <span className="text-[11px] text-gray-500 font-bold mb-1 block">Current Route</span>
+            <div className="flex items-center justify-between">
+              <p className="text-[14px] font-extrabold text-gray-800">{routeData === false ? 'Unassigned Route' : (routeData ? routeData.name : 'Loading...')}</p>
+              <span className="bg-green-50 text-green-600 border border-green-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                {routeData === false ? 'No Route' : (routeData ? 'On Route' : 'Loading')}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
