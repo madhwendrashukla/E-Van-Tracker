@@ -95,13 +95,21 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Header */}
-        <header className="hidden md:flex h-20 bg-white border-b border-gray-200 items-center justify-between px-8 z-10 shadow-sm shrink-0">
-          <h2 className="text-2xl font-bold text-gray-800">Fleet Overview</h2>
+        <header className="hidden md:flex h-24 border-b border-gray-100 items-center justify-between px-8 z-10 shrink-0 bg-transparent">
+          <div>
+            <h2 className="text-3xl font-black text-gray-900">Fleet Overview</h2>
+            <div className="flex items-center mt-1 text-gray-500 font-medium">
+              <span>Updated just now</span>
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full ml-2"></span>
+            </div>
+          </div>
           <div className="flex items-center space-x-4">
-            <button className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+            <button className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm">
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
             </button>
-            <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full border-2 border-white shadow-md"></div>
+            <div className="w-10 h-10 bg-emerald-500 rounded-full shadow-sm flex items-center justify-center text-white font-bold text-sm">
+              EV
+            </div>
           </div>
         </header>
 
@@ -114,46 +122,46 @@ export default function AdminDashboard() {
 
           {/* KPI Stats Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center hover:shadow-md transition-shadow">
-              <div className="p-3 md:p-4 bg-blue-50 text-blue-600 rounded-xl mr-4 md:mr-5">
-                <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center">
+              <div className="w-14 h-14 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mr-4 md:mr-6">
+                <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
               </div>
               <div>
-                <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Fleet</p>
-                <p className="text-2xl md:text-3xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Fleet</p>
+                <p className="text-3xl md:text-4xl font-black text-gray-900">{stats.total}</p>
               </div>
             </div>
             
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center hover:shadow-md transition-shadow">
-              <div className="p-3 md:p-4 bg-emerald-50 text-emerald-600 rounded-xl mr-4 md:mr-5">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center">
+              <div className="w-14 h-14 md:w-16 md:h-16 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center mr-4 md:mr-6">
                 <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
               </div>
               <div>
-                <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Active Now</p>
-                <p className="text-2xl md:text-3xl font-bold text-gray-900">{stats.active}</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Active Now</p>
+                <p className="text-3xl md:text-4xl font-black text-gray-900">{stats.active}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center hover:shadow-md transition-shadow">
-              <div className="p-3 md:p-4 bg-amber-50 text-amber-600 rounded-xl mr-4 md:mr-5">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 flex items-center">
+              <div className="w-14 h-14 md:w-16 md:h-16 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mr-4 md:mr-6">
                 <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
               </div>
               <div>
-                <p className="text-xs md:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Speed Warnings</p>
-                <p className="text-2xl md:text-3xl font-bold text-gray-900">{stats.warnings}</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Speed Warnings</p>
+                <p className="text-3xl md:text-4xl font-black text-gray-900">{stats.warnings}</p>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6 lg:gap-8 lg:h-[600px]">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6 lg:gap-8 lg:h-[700px]">
             {/* Map Area */}
             <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[400px] lg:h-full shrink-0">
-              <div className="p-4 md:p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <h2 className="text-base md:text-lg font-bold text-gray-800">Live Mission Map</h2>
-                <span className="text-[10px] md:text-xs font-semibold px-2 md:px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 md:mr-2 animate-pulse"></span>
-                  Real-time
-                </span>
+              <div className="p-4 md:p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                <h2 className="text-base md:text-lg font-bold text-gray-900">Live Mission Map</h2>
+                <div className="flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Live</span>
+                </div>
               </div>
               <div className="flex-1 w-full relative">
                 <MapView allVehicles={vehicles} backendUrl={BACKEND_URL} isAdmin={true} />
@@ -161,11 +169,11 @@ export default function AdminDashboard() {
             </div>
             
             {/* Vehicle List */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[500px] lg:h-full shrink-0 mt-2 lg:mt-0">
-               <div className="p-5 border-b border-gray-100 bg-gray-50/50">
-                <h2 className="text-lg font-bold text-gray-800">Vehicle Roster</h2>
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[600px] lg:h-full shrink-0 mt-2 lg:mt-0">
+               <div className="p-4 md:p-6 border-b border-gray-100 bg-white">
+                <h2 className="text-base md:text-lg font-bold text-gray-900">Vehicle Roster</h2>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
                 {Object.values(vehicles).length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
                     <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg>
@@ -173,60 +181,58 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   Object.values(vehicles).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map((v) => (
-                    <div key={v.vehicle_id} className="group p-4 border border-gray-100 rounded-2xl bg-white hover:bg-slate-50 hover:border-emerald-200 transition-all cursor-pointer shadow-sm hover:shadow">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mr-3 group-hover:scale-110 transition-transform">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <div key={v.vehicle_id} className="group p-5 border border-gray-100 rounded-3xl bg-white hover:border-emerald-200 transition-all cursor-pointer shadow-sm">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-start">
+                          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 mr-4 group-hover:scale-105 transition-transform shrink-0 mt-1">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                           </div>
                           <div>
-                            <h3 className="font-bold text-gray-900">{v.vehicle_id}</h3>
-                            <p className="text-xs font-medium text-gray-500">Zone: {v.city_id}</p>
+                            <h3 className="text-lg font-black text-gray-900">{v.vehicle_id}</h3>
+                            <p className="text-xs font-medium text-gray-500 mt-0.5 leading-relaxed max-w-[150px] truncate">Zone: {v.city_id}</p>
                           </div>
                         </div>
-                        <div className={`px-2 py-1 rounded-md text-xs font-bold ${v.speed > 60 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
-                          {v.speed.toFixed(1)} km/h
+                        <div className="bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-xl text-center min-w-[60px]">
+                          <span className="block text-sm font-bold text-gray-800">{v.speed.toFixed(1)}</span>
+                          <span className="block text-[9px] font-bold text-gray-400 uppercase">km/h</span>
                         </div>
                       </div>
-                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
-                        <span className="text-[11px] text-gray-400 font-mono">
+
+                      <div className="flex justify-between items-center py-3 border-t border-gray-100">
+                        <span className="text-[11px] text-gray-500 font-medium">
                           L: {v.lat.toFixed(4)}, {v.lng.toFixed(4)}
                         </span>
-                        <span className="text-[11px] text-gray-500 font-medium">
+                        <span className="text-[11px] text-gray-400 font-medium">
                           {new Date(v.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
                       </div>
+
                       {checkpointStats[v.vehicle_id] && checkpointStats[v.vehicle_id].total > 0 && (
                         <>
-                          <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100 text-[11px] font-medium text-gray-500">
+                          <div className="flex justify-between items-center py-3 border-t border-gray-100 text-[11px] font-bold text-gray-600">
                             <span>Checkpoints: {checkpointStats[v.vehicle_id].total}</span>
-                            <span className="text-emerald-600 font-bold">✓ {checkpointStats[v.vehicle_id].covered}</span>
-                            <span className="text-amber-600 font-bold">⏳ {checkpointStats[v.vehicle_id].remaining}</span>
+                            <span className="text-emerald-500">✓ {checkpointStats[v.vehicle_id].covered}</span>
+                            <span className="text-amber-500">⏳ {checkpointStats[v.vehicle_id].remaining}</span>
                           </div>
+                          
                           {checkpointStats[v.vehicle_id].next_stop && (
-                            <div className="mt-2 p-2 bg-slate-50 rounded-xl border border-slate-100">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Next Stop</span>
-                                <span className="text-xs font-semibold text-indigo-600 truncate max-w-[120px]">{checkpointStats[v.vehicle_id].next_stop}</span>
+                            <div className="mt-2 p-3 bg-[#f8fafc] rounded-2xl">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Next Stop</span>
+                                <span className="text-xs font-bold text-blue-600">{checkpointStats[v.vehicle_id].next_stop}</span>
                               </div>
                               <div className="flex justify-between items-center">
-                                <span className="text-[11px] font-medium text-slate-500 flex items-center">
-                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                <span className="text-[11px] font-medium text-gray-500 flex items-center">
+                                  <svg className="w-3.5 h-3.5 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                                   {checkpointStats[v.vehicle_id].distance_to_next >= 1000 
                                     ? `${(checkpointStats[v.vehicle_id].distance_to_next / 1000).toFixed(1)} km` 
                                     : `${checkpointStats[v.vehicle_id].distance_to_next} m`}
                                 </span>
-                                <span className="text-[11px] font-medium text-slate-500 flex items-center">
-                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span className="text-[11px] font-medium text-gray-500 flex items-center">
+                                  <svg className="w-3.5 h-3.5 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                   ETA: {checkpointStats[v.vehicle_id].eta_minutes ? `${checkpointStats[v.vehicle_id].eta_minutes} min` : '--'}
                                 </span>
                               </div>
-                            </div>
-                          )}
-                          {checkpointStats[v.vehicle_id].average_speed > 0 && (
-                            <div className="flex justify-between items-center mt-2 text-[10px] font-medium text-slate-400">
-                              <span>Today's Avg Speed</span>
-                              <span>{checkpointStats[v.vehicle_id].average_speed} km/h</span>
                             </div>
                           )}
                         </>
