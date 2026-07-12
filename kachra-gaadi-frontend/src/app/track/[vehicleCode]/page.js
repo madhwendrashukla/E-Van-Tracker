@@ -434,8 +434,8 @@ export default function TrackVehicle({ params }) {
             <p className="text-[11px] text-green-100/80 font-medium mt-0.5">{vehicleCode.toUpperCase()} • {vehicleDetails?.cities?.name || vehicleDetails?.cities?.code || city || '...'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2 text-[12px] font-medium text-[#c0e0c1] bg-[#2d602f]/50 px-3 py-1.5 rounded-lg border border-[#4a8a4d]/30">
+        <div className="flex items-center gap-2 md:gap-5">
+          <div className="hidden md:flex items-center gap-2 text-[12px] font-medium text-[#c0e0c1] bg-[#2d602f]/50 px-3 py-1.5 rounded-lg border border-[#4a8a4d]/30">
             <svg className="w-4 h-4 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             {renderLastUpdated()}
           </div>
@@ -462,7 +462,9 @@ export default function TrackVehicle({ params }) {
               Fullscreen
             </button>
           </div>
-          {renderWeather()}
+          <div className="hidden md:block pointer-events-auto">
+            {renderWeather()}
+          </div>
         </div>
       </div>
 
@@ -481,7 +483,7 @@ export default function TrackVehicle({ params }) {
       <div className="absolute bottom-6 left-6 right-6 bg-white rounded-[20px] shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-200 p-6 z-20">
         <h2 className="text-[15px] font-extrabold text-gray-800 mb-5">Vehicle Status</h2>
         
-        <div className="flex flex-row gap-6 mb-5">
+        <div className="flex flex-col xl:flex-row gap-6 mb-5">
           {/* Left Col */}
           <div className="flex-[0.8] space-y-5">
             <div className="flex gap-3">
@@ -513,7 +515,7 @@ export default function TrackVehicle({ params }) {
           <div className="w-px bg-gray-100 my-2"></div>
           
           {/* Middle Boxes */}
-          <div className="flex-[2] flex gap-4">
+          <div className="flex-[2] grid grid-cols-2 md:flex gap-4">
             <div className="flex-1 border border-gray-100/80 rounded-2xl p-4 flex flex-col justify-center shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
               <div className="flex items-center gap-2 text-gray-500 mb-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -571,37 +573,37 @@ export default function TrackVehicle({ params }) {
         </div>
         
         {/* Bottom Strip */}
-        <div className="border-t border-gray-100/80 pt-5 flex items-center justify-between">
+        <div className="border-t border-gray-100/80 pt-5 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#f0fdf4] rounded-full flex items-center justify-center text-[#16a34a]">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
             </div>
             <div>
               <p className="text-[11px] text-gray-500 font-bold mb-0.5">Current Route</p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                 <p className="text-[13px] font-extrabold text-gray-800">{routeData === false ? 'Unassigned Route' : (routeData ? routeData.name : 'Loading Route...')}</p>
-                <span className="bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0] text-[10px] px-2 py-0.5 rounded-full font-bold">{routeData === false ? 'No Route' : (routeData ? 'On Route' : 'Loading')}</span>
+                <span className="bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0] text-[10px] px-2 py-0.5 rounded-full font-bold w-fit">{routeData === false ? 'No Route' : (routeData ? 'On Route' : 'Loading')}</span>
               </div>
             </div>
           </div>
           
-          <div className="w-px h-10 bg-gray-200/60"></div>
+          <div className="hidden md:block w-px h-10 bg-gray-200/60"></div>
           
           <div className="flex items-center gap-3">
-            <svg className="text-gray-300 w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+            <svg className="text-gray-300 w-7 h-7 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
             <div>
               <p className="text-[11px] text-gray-500 font-bold mb-0.5">Distance Traveled</p>
               <p className="text-[13px] font-extrabold text-gray-800">{checkpointStats?.distance_traveled > 0 ? checkpointStats.distance_traveled.toFixed(1) : '0.0'} km</p>
             </div>
           </div>
           
-          <div className="w-px h-10 bg-gray-200/60"></div>
+          <div className="hidden md:block w-px h-10 bg-gray-200/60"></div>
           
           <div className="flex items-center gap-3">
-            <svg className="text-gray-300 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path></svg>
+            <svg className="text-gray-300 w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path></svg>
             <div>
               <p className="text-[11px] text-gray-500 font-bold mb-0.5">Est. Next Stop</p>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
                 <p className="text-[13px] font-extrabold text-gray-800">{etaInfo?.stopName || (routeData === false ? 'No Route Assigned' : (routeData ? 'Calculating...' : 'Waiting for Route...'))}</p>
                 <p className="text-[11px] text-gray-500 font-semibold">{etaInfo?.minutes ? `ETA: ${etaInfo.minutes} mins` : 'ETA: --'}</p>
               </div>
@@ -610,9 +612,9 @@ export default function TrackVehicle({ params }) {
           
           <button 
             onClick={() => setFocusRouteTrigger(prev => prev + 1)}
-            className="bg-white hover:bg-gray-50 text-[#16a34a] border border-[#bbf7d0] px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 transition-all shadow-sm"
+            className="w-full md:w-auto mt-2 md:mt-0 justify-center bg-white hover:bg-gray-50 text-[#16a34a] border border-[#bbf7d0] px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 transition-all shadow-sm"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
             View Route
           </button>
         </div>
