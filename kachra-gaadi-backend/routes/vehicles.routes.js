@@ -453,4 +453,98 @@ router.get('/:vehicleCode/stops/history', authenticateToken, requireCityScope, c
   }
 });
 
+// Get daily history report for a vehicle
+router.get('/:vehicleCode/history-report', authenticateToken, requireCityScope, checkCityActive, async (req, res) => {
+  try {
+    const { vehicleCode } = req.params;
+    const { date } = req.query; // YYYY-MM-DD
+
+    if (!date) {
+      return res.status(400).json({ success: false, message: 'Date is required' });
+    }
+
+    // 1. Get vehicle, route_id, and driver info
+    let vehicleQuery = supabase
+      .from('vehicles')
+      .select('id, route_id, drivers(name, phone)')
+      .eq('vehicle_code', vehicleCode);
+    
+    if (req.enforcedCityId) {
+      vehicleQuery = vehicleQuery.eq('city_id', req.enforcedCityId);
+    }
+    
+    const { data: vehicle, error: vError } = await vehicleQuery.single();
+    if (vError || !vehicle) return res.status(404).json({ success: false, message: 'Vehicle not found' });
+
+    // 2. Get total stops for assigned route
+    let totalStops = 0;
+    if (vehicle.route_id) {
+      const { data: stops } = await supabase.from('stops').select('id').eq('route_id', vehicle.route_id);
+      if (stops) totalStops = stops.length;
+    }
+
+    // 3. Get covered checkpoints
+    const { data: visits } = await supabase
+      .from('stop_visits')
+      .select('stop_id')
+      .eq('vehicle_id', vehicle.id)
+      .eq('visit_date', date);
+      
+    const coveredStops = visits ? new Set(visits.map(v => v.stop_id)).size : 0;
+
+    // 4. Get location logs to calculate distance and duration
+    const { data: logs } = await supabase
+      .from('location_logs')
+      .select('lat, lng, speed, timestamp')
+      .eq('vehicle_id', vehicle.id)
+      .gte('timestamp', `${date}T00:00:00.000Z`)
+      .lt('timestamp', `${date}T23:59:59.999Z`)
+      .order('timestamp', { ascending: false });
+
+    let distanceTraveledKm = 0;
+    let durationMinutes = 0;
+
+    if (logs && logs.length > 0) {
+      // Calculate duration
+      const firstTimestamp = new Date(logs[logs.length - 1].timestamp).getTime();
+      const lastTimestamp = new Date(logs[0].timestamp).getTime();
+      durationMinutes = Math.round((lastTimestamp - firstTimestamp) / 60000);
+
+      // Calculate distance (anti-drift filter)
+      let distanceTraveledMeters = 0;
+      if (logs.length > 1) {
+        let lastValidPoint = logs[logs.length - 1];
+        for (let i = logs.length - 2; i >= 0; i--) {
+          const p = logs[i];
+          const truckSpeed = parseFloat(p.speed) || 0;
+          const dist = getDistanceInMetersLocal(lastValidPoint.lat, lastValidPoint.lng, p.lat, p.lng);
+          if (dist > 30.0 && truckSpeed > 4.0) {
+            distanceTraveledMeters += dist;
+            lastValidPoint = p;
+          }
+        }
+      }
+      distanceTraveledKm = parseFloat((distanceTraveledMeters / 1000).toFixed(2));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        vehicle_code: vehicleCode,
+        date: date,
+        driver_name: vehicle.drivers ? vehicle.drivers.name : 'Unassigned',
+        driver_phone: vehicle.drivers ? vehicle.drivers.phone : 'N/A',
+        total_checkpoints: totalStops,
+        covered_checkpoints: coveredStops,
+        distance_traveled_km: distanceTraveledKm,
+        duration_minutes: durationMinutes
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching history report:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;
