@@ -82,42 +82,48 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-md w-full p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-        <div className="flex justify-center mb-6">
-          <img src={logoUrl} alt="Logo" className="w-16 h-16 object-contain" />
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-4">
+      <div className="w-full max-w-[420px] bg-white rounded-3xl shadow-xl border border-gray-100 p-8 sm:p-10">
+        <div className="flex flex-col items-center justify-center mb-8">
+          <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mb-4 shadow-sm border border-green-100">
+            <img src={logoUrl} alt="Logo" className="w-12 h-12 object-contain" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Welcome Back</h2>
+          <p className="text-gray-500 text-sm font-medium mt-1">Sign in to your account</p>
         </div>
-        <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white mb-6">Login</h2>
         
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-6 text-sm font-medium flex items-center gap-2">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin}>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
               Email
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-colors text-sm font-medium"
+              placeholder="admin@example.com"
               required
             />
           </div>
 
-          <div className="mb-6">
-            <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+          <div>
+            <label className="block text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
               Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-colors text-sm font-medium"
+              placeholder="••••••••"
               required
             />
           </div>
@@ -125,10 +131,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            style={{ backgroundColor: brandColor }}
-            className="w-full text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 disabled:opacity-50 transition-colors shadow-md hover:opacity-90"
+            style={{ backgroundColor: brandColor || '#16a34a' }}
+            className="w-full text-white font-bold py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-green-500/30 disabled:opacity-70 transition-all shadow-md hover:shadow-lg mt-2 text-sm uppercase tracking-wide"
           >
-            {loading ? 'Logging in...' : 'Sign In'}
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
       </div>
