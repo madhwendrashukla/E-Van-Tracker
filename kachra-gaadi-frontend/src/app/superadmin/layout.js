@@ -17,8 +17,8 @@ export default function SuperadminLayout({ children }) {
   const NavLink = ({ href, icon, label }) => {
     const isActive = pathname === href || pathname.startsWith(href + '/');
     return (
-      <a href={href} className={`flex items-center px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-indigo-50 text-indigo-900 border-l-4 border-indigo-500 font-bold shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'}`}>
-        <span className={`mr-3 ${isActive ? 'text-indigo-500' : 'text-gray-400'}`}>{icon}</span>
+      <a href={href} className={`flex items-center px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-green-50 text-green-900 border-l-4 border-green-500 font-bold shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'}`}>
+        <span className={`mr-3 ${isActive ? 'text-green-500' : 'text-gray-400'}`}>{icon}</span>
         {label}
       </a>
     );
@@ -30,12 +30,12 @@ export default function SuperadminLayout({ children }) {
       <aside className="w-64 bg-white flex flex-col hidden md:flex shadow-2xl md:shadow-none border-r border-gray-100 z-20 shrink-0">
         {/* Logo */}
         <div className="h-24 flex items-center px-6 shrink-0">
-          <div className="w-10 h-10 bg-indigo-500 rounded-xl mr-3 flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 bg-green-600 rounded-xl mr-3 flex items-center justify-center shadow-sm">
             <span className="text-white font-bold text-lg">SA</span>
           </div>
           <div>
             <h1 className="text-sm font-black tracking-wider text-gray-900">E-Van Tracker</h1>
-            <p className="text-indigo-500 text-xs font-bold mt-0.5">Superadmin</p>
+            <p className="text-green-600 text-xs font-bold mt-0.5">Superadmin</p>
           </div>
         </div>
 
@@ -47,7 +47,7 @@ export default function SuperadminLayout({ children }) {
 
         <div className="p-6 shrink-0">
           <div className="px-4 py-2 mb-3 text-xs text-gray-500 text-center">
-            Logged in as <span className="text-indigo-600 font-bold">Superadmin</span>
+            Logged in as <span className="text-green-600 font-bold">Superadmin</span>
           </div>
           <button
             onClick={handleLogout}

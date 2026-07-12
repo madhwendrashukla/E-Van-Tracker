@@ -77,10 +77,10 @@ const CreateCityModal = ({ onClose, onCreated }) => {
           {inviteLink && (
             <div className="bg-gray-50 rounded-xl p-4 mb-6 text-left border border-gray-100">
               <p className="text-xs text-gray-500 mb-2 font-medium">Send this invite link to the City Admin:</p>
-              <p className="text-indigo-600 text-xs break-all font-mono font-medium">{inviteLink}</p>
+              <p className="text-green-600 text-xs break-all font-mono font-medium">{inviteLink}</p>
             </div>
           )}
-          <button onClick={onClose} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-colors">
+          <button onClick={onClose} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors">
             Done
           </button>
         </div>
@@ -100,13 +100,13 @@ const CreateCityModal = ({ onClose, onCreated }) => {
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">City Name *</label>
               <input name="name" required value={form.name} onChange={handleChange}
-                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow"
+                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-shadow"
                 placeholder="e.g. Lucknow" />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">City Code *</label>
               <input name="code" required value={form.code} onChange={handleChange}
-                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow uppercase"
+                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-shadow uppercase"
                 placeholder="e.g. LKO" maxLength={5} />
             </div>
           </div>
@@ -114,12 +114,12 @@ const CreateCityModal = ({ onClose, onCreated }) => {
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">State</label>
               <input name="state" value={form.state} onChange={handleChange}
-                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow"
+                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-shadow"
                 placeholder="e.g. Uttar Pradesh" />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Subdomain *</label>
-              <div className="flex items-center bg-white border border-gray-200 rounded-xl focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 overflow-hidden transition-shadow">
+              <div className="flex items-center bg-white border border-gray-200 rounded-xl focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 overflow-hidden transition-shadow">
                 <input name="subdomain" required value={form.subdomain} onChange={handleChange}
                   className="flex-1 bg-transparent text-gray-900 px-4 py-2.5 text-sm focus:outline-none"
                   placeholder="lucknow" />
@@ -129,7 +129,7 @@ const CreateCityModal = ({ onClose, onCreated }) => {
             <div className="col-span-2">
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Custom Domain (optional)</label>
               <input name="custom_domain" value={form.custom_domain} onChange={handleChange}
-                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow"
+                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-shadow"
                 placeholder="e.g. tracker.city.gov.in" />
             </div>
           </div>
@@ -137,13 +137,13 @@ const CreateCityModal = ({ onClose, onCreated }) => {
             <p className="text-xs text-gray-500 mb-3 font-bold uppercase tracking-wider">Contact <span className="normal-case tracking-normal font-normal opacity-70">(optional — for City Admin invite)</span></p>
             <div className="space-y-3">
               <input name="contact_name" value={form.contact_name} onChange={handleChange}
-                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow"
+                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-shadow"
                 placeholder="Contact person name" />
               <input name="contact_email" type="email" value={form.contact_email} onChange={handleChange}
-                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow"
+                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-shadow"
                 placeholder="cityadmin@example.com" />
               <input name="contact_phone" value={form.contact_phone} onChange={handleChange}
-                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow"
+                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-shadow"
                 placeholder="Phone number" />
             </div>
           </div>
@@ -152,7 +152,7 @@ const CreateCityModal = ({ onClose, onCreated }) => {
             <button type="button" onClick={onClose} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl transition-colors text-sm shadow-sm">
               Cancel
             </button>
-            <button type="submit" disabled={loading} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors text-sm shadow-md">
+            <button type="submit" disabled={loading} className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors text-sm shadow-md">
               {loading ? 'Creating…' : 'Create City'}
             </button>
           </div>
@@ -233,7 +233,7 @@ export default function SuperadminPage() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl transition-colors text-sm shadow-md"
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold px-6 py-3 rounded-xl transition-colors text-sm shadow-md"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
           New City
@@ -254,7 +254,7 @@ export default function SuperadminPage() {
         {/* KPI Cards */}
         {kpis && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            <KpiCard label="Total Cities" value={kpis.total_cities} icon={<svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>} color="bg-indigo-50 text-indigo-500" />
+            <KpiCard label="Total Cities" value={kpis.total_cities} icon={<svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>} color="bg-green-50 text-green-500" />
             <KpiCard label="Active Cities" value={kpis.active_cities} icon={<svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>} color="bg-emerald-50 text-emerald-500" />
             <KpiCard label="Total Vehicles" value={kpis.total_vehicles} icon={<svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>} color="bg-blue-50 text-blue-500" />
             <KpiCard label="Active Now" value={kpis.active_vehicles_now} icon={<svg className="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>} color="bg-orange-50 text-orange-500" />
@@ -270,7 +270,7 @@ export default function SuperadminPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search cities…"
-              className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 w-56 transition-colors placeholder-gray-400"
+              className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-green-500 w-56 transition-colors placeholder-gray-400"
             />
           </div>
 
@@ -303,7 +303,7 @@ export default function SuperadminPage() {
                           href={`https://${city.subdomain}.mybuildspace.in`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-indigo-600 hover:text-indigo-500 font-mono text-xs transition-colors block mb-1"
+                          className="text-green-600 hover:text-green-500 font-mono text-xs transition-colors block mb-1"
                         >
                           {city.subdomain}.mybuildspace.in ↗
                         </a>
