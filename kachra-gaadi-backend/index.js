@@ -18,6 +18,7 @@ const usersRoutes = require('./routes/users.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const locationRoutes = require('./routes/location.routes');
 const superadminRoutes = require('./routes/superadmin.routes');
+const reportsRoutes = require('./routes/reports.routes');
 const { startTcpServer } = require('./tcpServer');
 const { startCronJobs } = require('./cron');
 const { authenticateToken, authorizeRole } = require('./middleware/auth');
@@ -117,6 +118,7 @@ app.use('/api/routes', routesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/superadmin', superadminRoutes);
+app.use('/api/reports', reportsRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
